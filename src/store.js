@@ -1,33 +1,53 @@
 import { DEFAULT_CATEGORIES, DEFAULT_SEARCH_ENGINES, DEFAULT_SITES } from "./data/defaultSites.js";
 
-export const STORAGE_KEY = "navhub.state.v1";
+export const STORAGE_KEY = "navhub.state.v2";
+export const LEGACY_STORAGE_KEY = "navhub.state.v1";
+export const THEMES = [
+  { id: "starlight", name: "星穹", colorScheme: "dark", themeColor: "#090b1a" },
+  { id: "sakura", name: "昼樱", colorScheme: "light", themeColor: "#fff7fa" },
+  { id: "akiba", name: "秋叶原", colorScheme: "dark", themeColor: "#070614" },
+  { id: "miku", name: "初音", colorScheme: "dark", themeColor: "#071521" },
+];
 
 const ACCENT_PALETTE = ["#38bdf8", "#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#0ea5e9"];
+const LEGACY_SEARCH_TEMPLATES = new Map([
+  ["baidu", "https://www.baidu.com/s?wd={q}"],
+  ["zhihu", "https://www.zhihu.com/search?type=content&q={q}"],
+]);
 
 export function isSafeHttpUrl(rawUrl) {
+  if (typeof rawUrl !== "string" || !/^https?:\/\/[^/\s?#\\]/i.test(rawUrl)
+    || /[\u0000-\u0020\u007f\\]/.test(rawUrl)) return false;
   try {
     const parsed = new URL(rawUrl);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    return Boolean(parsed.hostname) && !parsed.username && !parsed.password;
   } catch {
     return false;
   }
 }
 
 export function normalizeUrl(rawInput) {
-  const trimmed = String(rawInput ?? "").trim();
+  const trimmed = typeof rawInput === "string" ? rawInput.trim() : "";
   if (!trimmed) {
     throw new Error("请输入网站地址");
   }
-  const hasExplicitScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed);
+  const bareHostWithPort = /^(?:localhost|[^/:]+\.[^/:]+):\d+(?:[/?#]|$)/i.test(trimmed);
+  const hasExplicitScheme = !bareHostWithPort && /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed);
   const candidate = hasExplicitScheme ? trimmed : `https://${trimmed}`;
   if (!isSafeHttpUrl(candidate)) {
     throw new Error("仅支持 http:// 或 https:// 开头的安全网址");
   }
   const parsed = new URL(candidate);
-  if (!parsed.hostname || !parsed.hostname.includes(".")) {
-    if (parsed.hostname !== "localhost") {
-      throw new Error("请输入完整有效的域名（例如 example.com）");
-    }
+  if (!parsed.hostname.includes(".") && parsed.hostname !== "localhost" && !parsed.hostname.startsWith("[")) {
+    throw new Error("请输入完整有效的域名（例如 example.com）");
+  }
+  parsed.pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+  if (parsed.search) {
+    const kept = parsed.search.slice(1).split("&").filter((pair) => {
+      const key = new URLSearchParams(pair).keys().next().value ?? "";
+      return !/^(utm_.*|gclid|dclid|fbclid|msclkid)$/i.test(key);
+    });
+    parsed.search = kept.join("&");
   }
   return parsed.toString();
 }
@@ -50,72 +70,145 @@ export function pickAccent(name = "") {
 
 export function createDefaultState() {
   return {
-    version: 1,
-    theme: "dark",
+    version: 2,
+    theme: THEMES[0].id,
+    motionPaused: false,
     searchEngineId: DEFAULT_SEARCH_ENGINES[0].id,
-    sites: DEFAULT_SITES.map((s) => ({ ...s })),
+    sites: DEFAULT_SITES.map((site) => ({ ...site, url: normalizeUrl(site.url), tags: [...site.tags] })),
   };
+}
+
+function knownThemeId(value) {
+  if (value === "dark") return "starlight";
+  if (value === "light") return "sakura";
+  return THEMES.find(({ id }) => id === value)?.id;
+}
+
+export function resolveThemeId(value) {
+  return knownThemeId(value) ?? THEMES[0].id;
+}
+
+function sanitizeTags(value) {
+  const tags = typeof value === "string" ? value.split(/[,，\s]+/u) : value;
+  if (!Array.isArray(tags)) return [];
+  const unique = new Map();
+  for (const item of tags) {
+    if (typeof item !== "string") continue;
+    const tag = Array.from(item.trim()).slice(0, 16).join("");
+    const key = tag.toLowerCase();
+    if (tag && !unique.has(key)) unique.set(key, tag);
+    if (unique.size === 3) break;
+  }
+  return [...unique.values()];
+}
+
+function siteId(value) {
+  return typeof value === "string" && !["__proto__", "constructor", "prototype"].includes(value.trim())
+    ? value.trim() : "";
+}
+
+function uniqueId(base, taken) {
+  let id = base;
+  for (let suffix = 2; taken.has(id); suffix += 1) id = base + "-" + suffix;
+  return id;
+}
+
+function cleanSites(items, defaultsByUrl = new Map()) {
+  const reserved = new Set(items.map((item) => siteId(item?.id)));
+  const seen = new Set();
+  const sites = [];
+  for (const [index, raw] of items.entries()) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    try {
+      const url = normalizeUrl(raw.url);
+      const draft = validateSiteDraft({ ...defaultsByUrl.get(url), ...raw, url });
+      const explicitId = siteId(raw.id);
+      if (explicitId && seen.has(explicitId)) continue;
+      const id = explicitId || uniqueId("site-import-" + (index + 1), reserved);
+      seen.add(id);
+      reserved.add(id);
+      sites.push({ id, ...draft });
+    } catch {
+      // Keep valid rows when a saved or imported record is malformed.
+    }
+  }
+  return sites;
 }
 
 export function sanitizeImportedSites(items) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error("导入数据中未找到有效的网站列表");
   }
-  const seen = new Set();
-  const clean = [];
-  for (let i = 0; i < items.length; i += 1) {
-    const raw = items[i];
-    if (!raw || typeof raw !== "object") continue;
-    const name = String(raw.name ?? "").trim();
-    if (!name) continue;
-    const url = normalizeUrl(raw.url);
-    const id = String(raw.id ?? "").trim() || `site-import-${Date.now()}-${i}`;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    clean.push({
-      id,
-      name: name.slice(0, 48),
-      url,
-      category: String(raw.category ?? "").trim().slice(0, 24) || DEFAULT_CATEGORIES[1],
-      description: String(raw.description ?? "").trim().slice(0, 96),
-      pinned: Boolean(raw.pinned),
-      accent: /^#[0-9a-fA-F]{6}$/.test(String(raw.accent ?? "")) ? raw.accent : pickAccent(name),
-    });
-  }
+  const clean = cleanSites(items);
   if (clean.length === 0) {
-    throw new Error("导入的网站记录均格式无效");
+    throw new Error("导入的网站记录均格式无效，仅支持 http:// 或 https:// 网址");
   }
   return clean;
 }
 
-export function loadState(storage = globalThis?.localStorage) {
-  const fallback = createDefaultState();
-  if (!storage) return fallback;
+function readStoredState(storage, key) {
   try {
-    const raw = storage.getItem(STORAGE_KEY);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    const sites = Array.isArray(parsed?.sites) ? sanitizeImportedSites(parsed.sites) : fallback.sites;
-    const engineOk = DEFAULT_SEARCH_ENGINES.some((e) => e.id === parsed?.searchEngineId);
-    return {
-      version: 1,
-      theme: parsed?.theme === "light" ? "light" : "dark",
+    const parsed = JSON.parse(storage?.getItem(key) ?? "null");
+    return Array.isArray(parsed?.sites) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveStorage(storage) {
+  return storage === undefined ? globalThis.localStorage : storage;
+}
+
+function mergeLegacySites(items, defaults) {
+  const defaultsByUrl = new Map(defaults.map((site) => [site.url, site]));
+  const byUrl = new Map();
+  for (const site of cleanSites(items, defaultsByUrl)) {
+    if (!byUrl.has(site.url)) byUrl.set(site.url, site);
+  }
+  const ids = new Set([...byUrl.values()].map((site) => site.id));
+  for (const site of defaults) {
+    if (byUrl.has(site.url)) continue;
+    const id = uniqueId(site.id, ids);
+    ids.add(id);
+    byUrl.set(site.url, { ...site, id });
+  }
+  return [...byUrl.values()];
+}
+
+export function loadState(storage) {
+  const fallback = createDefaultState();
+  try {
+    storage = resolveStorage(storage);
+    const current = readStoredState(storage, STORAGE_KEY);
+    const legacy = current ? null : readStoredState(storage, LEGACY_STORAGE_KEY);
+    const parsed = current ?? legacy;
+    if (!parsed) return fallback;
+    const engineOk = DEFAULT_SEARCH_ENGINES.some((engine) => engine.id === parsed.searchEngineId);
+    const sites = legacy ? mergeLegacySites(parsed.sites, fallback.sites) : cleanSites(parsed.sites);
+    const state = {
+      ...fallback,
+      theme: resolveThemeId(parsed.theme),
+      motionPaused: parsed.motionPaused === true,
       searchEngineId: engineOk ? parsed.searchEngineId : fallback.searchEngineId,
-      sites,
+      sites: parsed.sites.length > 0 && sites.length === 0 ? fallback.sites : sites,
     };
+    return legacy ? saveState(state, storage) : state;
   } catch {
     return fallback;
   }
 }
 
-export function saveState(state, storage = globalThis?.localStorage) {
-  if (!storage) return state;
-  storage.setItem(STORAGE_KEY, JSON.stringify(state));
+export function saveState(state, storage) {
+  try {
+    resolveStorage(storage)?.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Storage can be blocked or full. Keep the current in-memory state.
+  }
   return state;
 }
 
-export function validateSiteDraft({ name, url, category, description, pinned, accent }) {
-  const cleanName = String(name ?? "").trim();
+export function validateSiteDraft({ name, url, category, description, pinned, accent, tags } = {}) {
+  const cleanName = typeof name === "string" ? name.trim() : "";
   if (!cleanName) {
     throw new Error("请输入网站名称");
   }
@@ -127,7 +220,8 @@ export function validateSiteDraft({ name, url, category, description, pinned, ac
     category: cleanCategory.slice(0, 24),
     description: String(description ?? "").trim().slice(0, 96),
     pinned: Boolean(pinned),
-    accent: /^#[0-9a-fA-F]{6}$/.test(String(accent ?? "")) ? accent : pickAccent(cleanName),
+    accent: typeof accent === "string" && /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(accent) ? accent : pickAccent(cleanName),
+    tags: sanitizeTags(tags),
   };
 }
 
@@ -147,7 +241,7 @@ export function updateSite(state, siteId, draft) {
   const nextSites = state.sites.map((s) => {
     if (s.id !== siteId) return s;
     updated = true;
-    return { ...s, ...validated };
+    return { ...s, ...validated, tags: Object.hasOwn(draft, "tags") ? validated.tags : (s.tags ?? []) };
   });
   if (!updated) {
     throw new Error("未找到要修改的网站条目");
@@ -184,21 +278,18 @@ export function filterSites(sites, { category = "全部", query = "" } = {}) {
       return false;
     }
     if (!q) return true;
-    return (
-      s.name.toLowerCase().includes(q) ||
-      s.description.toLowerCase().includes(q) ||
-      s.category.toLowerCase().includes(q) ||
-      extractDomainLabel(s.url).toLowerCase().includes(q)
-    );
+    return [s.name, s.description, s.category, s.url, ...sanitizeTags(s.tags)]
+      .some((value) => typeof value === "string" && value.toLowerCase().includes(q));
   });
 }
 
 export function buildSearchUrl(engineId, rawQuery) {
   const q = String(rawQuery ?? "").trim();
-  const engine =
-    DEFAULT_SEARCH_ENGINES.find((e) => e.id === engineId) ?? DEFAULT_SEARCH_ENGINES[0];
   if (!q) return null;
-  return engine.template.replace("{q}", encodeURIComponent(q));
+  const template = DEFAULT_SEARCH_ENGINES.find((engine) => engine.id === engineId)?.urlTemplate
+    ?? LEGACY_SEARCH_TEMPLATES.get(engineId)
+    ?? DEFAULT_SEARCH_ENGINES[0].urlTemplate;
+  return template.replace("{q}", encodeURIComponent(q));
 }
 
 export function exportStateJson(state) {
@@ -207,6 +298,7 @@ export function exportStateJson(state) {
       app: "nav-hub",
       exportedAt: new Date().toISOString(),
       theme: state.theme,
+      motionPaused: state.motionPaused === true,
       searchEngineId: state.searchEngineId,
       sites: state.sites,
     },
@@ -222,11 +314,15 @@ export function importStateJson(currentState, rawJson) {
   } catch {
     throw new Error("备份文件不是合法的 JSON 格式");
   }
-  const sites = sanitizeImportedSites(Array.isArray(parsed) ? parsed : parsed?.sites);
+  const imported = Array.isArray(parsed) ? parsed : parsed?.sites;
+  const sites = Array.isArray(parsed?.sites) && imported.length === 0 ? [] : sanitizeImportedSites(imported);
   const engineOk = DEFAULT_SEARCH_ENGINES.some((e) => e.id === parsed?.searchEngineId);
+  const theme = knownThemeId(parsed?.theme);
   return {
     ...currentState,
-    ...(parsed?.theme === "light" || parsed?.theme === "dark" ? { theme: parsed.theme } : {}),
+    version: 2,
+    ...(theme ? { theme } : {}),
+    ...(typeof parsed?.motionPaused === "boolean" ? { motionPaused: parsed.motionPaused } : {}),
     ...(engineOk ? { searchEngineId: parsed.searchEngineId } : {}),
     sites,
   };

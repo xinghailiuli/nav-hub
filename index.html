@@ -1,14 +1,99 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="极光导航 NavHub - 清爽好用的个人网址导航站，支持多引擎聚合搜索、常用置顶、自定义站点与本地导入导出备份。" />
-    <title>极光导航 · NavHub</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<html lang="zh-CN" data-theme="starlight">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="极光导航 NavHub，精选二次元、Galgame、动漫与 AI 大模型入口。">
+  <meta name="keywords" content="二次元, Galgame, 动漫, AI模型, 导航">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" id="meta-theme-color" content="#090b1a">
+  <script>
+(() => {
+  function readState(key) {
+    try {
+      const state = JSON.parse(localStorage.getItem(key) ?? "null");
+      return Array.isArray(state?.sites) ? state : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const state = readState("navhub.state.v2") ?? readState("navhub.state.v1");
+  const themeColors = { starlight: "#090b1a", sakura: "#fff7fa", akiba: "#070614", miku: "#071521" };
+  let theme = state?.theme;
+  if (theme === "dark") theme = "starlight";
+  if (theme === "light") theme = "sakura";
+  if (typeof theme !== "string" || !Object.hasOwn(themeColors, theme)) theme = "starlight";
+
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.motionPaused = String(state?.motionPaused === true);
+  document.querySelector('meta[name="color-scheme"]').content = theme === "sakura" ? "light" : "dark";
+  document.querySelector("#meta-theme-color").content = themeColors[theme];
+})();
+</script>
+  <title>极光导航 NavHub · 二次元、Galgame 与 AI 模型雷达</title>
+</head>
+<body>
+  <div class="ambient-layer" aria-hidden="true">
+
+<svg class="particle particle-1" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
+      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
+      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
+      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
+    </svg>
+
+<svg class="particle particle-2" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
+      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
+      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
+      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
+    </svg>
+
+<svg class="particle particle-3" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
+      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
+      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
+      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
+    </svg>
+
+<svg class="particle particle-4" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
+      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
+      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
+      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
+    </svg>
+
+<svg class="particle particle-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
+      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
+      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
+      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
+    </svg>
+
+<svg class="particle particle-6" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
+      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
+      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
+      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
+    </svg>
+
+<svg class="particle particle-7" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
+      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
+      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
+      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
+    </svg>
+
+<svg class="particle particle-8" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
+      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
+      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
+      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
+    </svg>
+  </div>
+  <div id="app"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
 </html>

@@ -1,0 +1,655 @@
+{
+  "snapshotSource": "build-live",
+  "generatedAt": "2026-11-25T20:12:42.628Z",
+  "syncMode": "snapshot",
+  "sourceResults": {
+    "openrouter": true,
+    "openaiStatus": true,
+    "claudeStatus": true,
+    "ollama": true
+  },
+  "providers": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "family": "GPT / Codex / o 系列",
+      "url": "https://openai.com",
+      "apiUrl": "https://platform.openai.com/docs/models",
+      "catalogFresh": true,
+      "modelCount": 106,
+      "featuredModel": {
+        "id": "openai/gpt-6.2-astra-pro",
+        "name": "OpenAI: GPT-6.2 Astra Pro",
+        "url": "https://openrouter.ai/openai/gpt-6.2-astra-pro",
+        "contextWindow": 1050000,
+        "created": 1794938432,
+        "pricing": {
+          "prompt": "0.000008",
+          "completion": "0.00004"
+        }
+      },
+      "recentModels": [
+        {
+          "id": "openai/gpt-6.2-astra-pro",
+          "name": "OpenAI: GPT-6.2 Astra Pro",
+          "url": "https://openrouter.ai/openai/gpt-6.2-astra-pro",
+          "contextWindow": 1050000,
+          "created": 1794938432,
+          "pricing": {
+            "prompt": "0.000008",
+            "completion": "0.00004"
+          }
+        },
+        {
+          "id": "openai/gpt-6.2-astra-pro:batch",
+          "name": "OpenAI: GPT-6.2 Astra Pro (batch)",
+          "url": "https://openrouter.ai/openai/gpt-6.2-astra-pro:batch",
+          "contextWindow": 1050000,
+          "created": 1794938432,
+          "pricing": {
+            "prompt": "0.000004",
+            "completion": "0.00002"
+          }
+        },
+        {
+          "id": "openai/gpt-6.2-astra",
+          "name": "OpenAI: GPT-6.2 Astra",
+          "url": "https://openrouter.ai/openai/gpt-6.2-astra",
+          "contextWindow": 1050000,
+          "created": 1794938423,
+          "pricing": {
+            "prompt": "0.000008",
+            "completion": "0.00004"
+          }
+        },
+        {
+          "id": "openai/gpt-6.2-astra:batch",
+          "name": "OpenAI: GPT-6.2 Astra (batch)",
+          "url": "https://openrouter.ai/openai/gpt-6.2-astra:batch",
+          "contextWindow": 1050000,
+          "created": 1794938423,
+          "pricing": {
+            "prompt": "0.000004",
+            "completion": "0.00002"
+          }
+        },
+        {
+          "id": "openai/gpt-6.2-sol-pro",
+          "name": "OpenAI: GPT-6.2 Sol Pro",
+          "url": "https://openrouter.ai/openai/gpt-6.2-sol-pro",
+          "contextWindow": 1050000,
+          "created": 1794938409,
+          "pricing": {
+            "prompt": "0.000002",
+            "completion": "0.00001"
+          }
+        }
+      ],
+      "status": {
+        "sourceName": "OpenAI Status",
+        "indicator": "minor",
+        "severity": "degraded",
+        "description": "Partial System Degradation",
+        "url": "https://status.openai.com/"
+      }
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "family": "Claude",
+      "url": "https://www.anthropic.com",
+      "apiUrl": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "catalogFresh": true,
+      "modelCount": 32,
+      "featuredModel": {
+        "id": "anthropic/claude-fable-5.2",
+        "name": "Anthropic: Claude Fable 5.2",
+        "url": "https://openrouter.ai/anthropic/claude-fable-5.2",
+        "contextWindow": 1000000,
+        "created": 1794253781,
+        "pricing": {
+          "prompt": "0.000008",
+          "completion": "0.00004"
+        }
+      },
+      "recentModels": [
+        {
+          "id": "anthropic/claude-fable-5.2",
+          "name": "Anthropic: Claude Fable 5.2",
+          "url": "https://openrouter.ai/anthropic/claude-fable-5.2",
+          "contextWindow": 1000000,
+          "created": 1794253781,
+          "pricing": {
+            "prompt": "0.000008",
+            "completion": "0.00004"
+          }
+        },
+        {
+          "id": "anthropic/claude-fable-5.2:batch",
+          "name": "Anthropic: Claude Fable 5.2 (batch)",
+          "url": "https://openrouter.ai/anthropic/claude-fable-5.2:batch",
+          "contextWindow": 1000000,
+          "created": 1794253781,
+          "pricing": {
+            "prompt": "0.000004",
+            "completion": "0.00002"
+          }
+        },
+        {
+          "id": "anthropic/claude-haiku-5.5",
+          "name": "Anthropic: Claude Haiku 5.5",
+          "url": "https://openrouter.ai/anthropic/claude-haiku-5.5",
+          "contextWindow": 1000000,
+          "created": 1791397883,
+          "pricing": {
+            "prompt": "0.0000001",
+            "completion": "0.0000005"
+          }
+        },
+        {
+          "id": "anthropic/claude-haiku-5.5:batch",
+          "name": "Anthropic: Claude Haiku 5.5 (batch)",
+          "url": "https://openrouter.ai/anthropic/claude-haiku-5.5:batch",
+          "contextWindow": 1000000,
+          "created": 1791397883,
+          "pricing": {
+            "prompt": "0.00000005",
+            "completion": "0.00000025"
+          }
+        },
+        {
+          "id": "anthropic/claude-sonnet-5.5",
+          "name": "Anthropic: Claude Sonnet 5.5",
+          "url": "https://openrouter.ai/anthropic/claude-sonnet-5.5",
+          "contextWindow": 1000000,
+          "created": 1790618686,
+          "pricing": {
+            "prompt": "0.000002",
+            "completion": "0.00001"
+          }
+        }
+      ],
+      "status": {
+        "sourceName": "Claude Status",
+        "indicator": "minor",
+        "severity": "degraded",
+        "description": "Partially Degraded Service",
+        "url": "https://status.claude.com"
+      }
+    },
+    {
+      "id": "google",
+      "name": "Google",
+      "family": "Gemini",
+      "url": "https://gemini.google.com",
+      "apiUrl": "https://ai.google.dev/gemini-api/docs/models",
+      "catalogFresh": true,
+      "modelCount": 49,
+      "featuredModel": {
+        "id": "google/gemini-4-neon",
+        "name": "Google: Gemini 4 Neon",
+        "url": "https://openrouter.ai/google/gemini-4-neon",
+        "contextWindow": 1048576,
+        "created": 1795006977,
+        "pricing": {
+          "prompt": "0.000003",
+          "completion": "0.000015"
+        }
+      },
+      "recentModels": [
+        {
+          "id": "google/gemini-4-neon",
+          "name": "Google: Gemini 4 Neon",
+          "url": "https://openrouter.ai/google/gemini-4-neon",
+          "contextWindow": 1048576,
+          "created": 1795006977,
+          "pricing": {
+            "prompt": "0.000003",
+            "completion": "0.000015"
+          }
+        },
+        {
+          "id": "google/gemini-4-neon:batch",
+          "name": "Google: Gemini 4 Neon (batch)",
+          "url": "https://openrouter.ai/google/gemini-4-neon:batch",
+          "contextWindow": 1048576,
+          "created": 1795006977,
+          "pricing": {
+            "prompt": "0.0000015",
+            "completion": "0.0000075"
+          }
+        },
+        {
+          "id": "google/gemini-4-hydrogen",
+          "name": "Google: Gemini 4 Hydrogen",
+          "url": "https://openrouter.ai/google/gemini-4-hydrogen",
+          "contextWindow": 1048576,
+          "created": 1794506460,
+          "pricing": {
+            "prompt": "0.0000015",
+            "completion": "0.0000075"
+          }
+        },
+        {
+          "id": "google/gemini-4-hydrogen:batch",
+          "name": "Google: Gemini 4 Hydrogen (batch)",
+          "url": "https://openrouter.ai/google/gemini-4-hydrogen:batch",
+          "contextWindow": 1048576,
+          "created": 1794506460,
+          "pricing": {
+            "prompt": "0.00000075",
+            "completion": "0.00000375"
+          }
+        },
+        {
+          "id": "google/gemini-4-carbon",
+          "name": "Google: Gemini 4 Carbon",
+          "url": "https://openrouter.ai/google/gemini-4-carbon",
+          "contextWindow": 1048576,
+          "created": 1794326871,
+          "pricing": {
+            "prompt": "0.000002",
+            "completion": "0.00001"
+          }
+        }
+      ],
+      "status": null
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "family": "R1 / V3",
+      "url": "https://www.deepseek.com",
+      "apiUrl": "https://api-docs.deepseek.com",
+      "catalogFresh": true,
+      "modelCount": 17,
+      "featuredModel": {
+        "id": "deepseek/deepseek-v4.1-flash-1017",
+        "name": "DeepSeek: DeepSeek V4.1 Flash 1017",
+        "url": "https://openrouter.ai/deepseek/deepseek-v4.1-flash-1017",
+        "contextWindow": 1048576,
+        "created": 1792225624,
+        "pricing": {
+          "prompt": "0.00000015",
+          "completion": "0.0000006"
+        }
+      },
+      "recentModels": [
+        {
+          "id": "deepseek/deepseek-v4.1-flash-1017",
+          "name": "DeepSeek: DeepSeek V4.1 Flash 1017",
+          "url": "https://openrouter.ai/deepseek/deepseek-v4.1-flash-1017",
+          "contextWindow": 1048576,
+          "created": 1792225624,
+          "pricing": {
+            "prompt": "0.00000015",
+            "completion": "0.0000006"
+          }
+        },
+        {
+          "id": "deepseek/deepseek-v4.1-flash-1017:batch",
+          "name": "DeepSeek: DeepSeek V4.1 Flash 1017 (batch)",
+          "url": "https://openrouter.ai/deepseek/deepseek-v4.1-flash-1017:batch",
+          "contextWindow": 1048576,
+          "created": 1792225624,
+          "pricing": {
+            "prompt": "0.000000035",
+            "completion": "0.000000149"
+          }
+        },
+        {
+          "id": "deepseek/deepseek-v4.1-flash",
+          "name": "DeepSeek: DeepSeek V4.1 Flash",
+          "url": "https://openrouter.ai/deepseek/deepseek-v4.1-flash",
+          "contextWindow": 1048576,
+          "created": 1789021285,
+          "pricing": {
+            "prompt": "0.0000000507",
+            "completion": "0.0000002028"
+          }
+        },
+        {
+          "id": "deepseek/deepseek-v4.1-flash:batch",
+          "name": "DeepSeek: DeepSeek V4.1 Flash (batch)",
+          "url": "https://openrouter.ai/deepseek/deepseek-v4.1-flash:batch",
+          "contextWindow": 1048576,
+          "created": 1789021285,
+          "pricing": {
+            "prompt": "0.00000005",
+            "completion": "0.00000015"
+          }
+        },
+        {
+          "id": "deepseek/deepseek-v4-flash-vision-exp",
+          "name": "DeepSeek: DeepSeek V4 Flash Vision Exp",
+          "url": "https://openrouter.ai/deepseek/deepseek-v4-flash-vision-exp",
+          "contextWindow": 1048576,
+          "created": 1787311563,
+          "pricing": {
+            "prompt": "0.00000044",
+            "completion": "0.00000132"
+          }
+        }
+      ],
+      "status": null
+    },
+    {
+      "id": "qwen",
+      "name": "Qwen 通义千问",
+      "family": "Qwen",
+      "url": "https://qwen.ai",
+      "apiUrl": "https://www.alibabacloud.com/help/en/model-studio/models",
+      "catalogFresh": true,
+      "modelCount": 43,
+      "featuredModel": {
+        "id": "qwen/qwen4-max",
+        "name": "Qwen: Qwen4 Max",
+        "url": "https://openrouter.ai/qwen/qwen4-max",
+        "contextWindow": 1000000,
+        "created": 1794795526,
+        "pricing": {
+          "prompt": "0.000001425",
+          "completion": "0.000004275"
+        }
+      },
+      "recentModels": [
+        {
+          "id": "qwen/qwen4-max",
+          "name": "Qwen: Qwen4 Max",
+          "url": "https://openrouter.ai/qwen/qwen4-max",
+          "contextWindow": 1000000,
+          "created": 1794795526,
+          "pricing": {
+            "prompt": "0.000001425",
+            "completion": "0.000004275"
+          }
+        },
+        {
+          "id": "qwen/qwen3.8-max-prime",
+          "name": "Qwen: Qwen3.8 Max Prime",
+          "url": "https://openrouter.ai/qwen/qwen3.8-max-prime",
+          "contextWindow": 1000000,
+          "created": 1790191228,
+          "pricing": {
+            "prompt": "0.000004",
+            "completion": "0.000012"
+          }
+        },
+        {
+          "id": "qwen/qwen3.8-omni-flash",
+          "name": "Qwen: Qwen3.8 Omni Flash",
+          "url": "https://openrouter.ai/qwen/qwen3.8-omni-flash",
+          "contextWindow": 1000000,
+          "created": 1789959954,
+          "pricing": {
+            "prompt": "0.00000015",
+            "completion": "0.00000047"
+          }
+        },
+        {
+          "id": "qwen/qwen3.8-max-0902",
+          "name": "Qwen: Qwen3.8 Max (0902)",
+          "url": "https://openrouter.ai/qwen/qwen3.8-max-0902",
+          "contextWindow": 1000000,
+          "created": 1788469704,
+          "pricing": {
+            "prompt": "0.000002",
+            "completion": "0.000006"
+          }
+        },
+        {
+          "id": "qwen/qwen3.8-max-0902:batch",
+          "name": "Qwen: Qwen3.8 Max (0902) (batch)",
+          "url": "https://openrouter.ai/qwen/qwen3.8-max-0902:batch",
+          "contextWindow": 262144,
+          "created": 1788469704,
+          "pricing": {
+            "prompt": "0.00000115",
+            "completion": "0.00000345"
+          }
+        }
+      ],
+      "status": null
+    },
+    {
+      "id": "xai",
+      "name": "xAI",
+      "family": "Grok",
+      "url": "https://x.ai",
+      "apiUrl": "https://docs.x.ai/docs/models",
+      "catalogFresh": true,
+      "modelCount": 9,
+      "featuredModel": {
+        "id": "x-ai/grok-4.7",
+        "name": "SpaceXSI: Grok 4.7",
+        "url": "https://openrouter.ai/x-ai/grok-4.7",
+        "contextWindow": 500000,
+        "created": 1790007541,
+        "pricing": {
+          "prompt": "0.000002",
+          "completion": "0.000006"
+        }
+      },
+      "recentModels": [
+        {
+          "id": "x-ai/grok-4.7",
+          "name": "SpaceXSI: Grok 4.7",
+          "url": "https://openrouter.ai/x-ai/grok-4.7",
+          "contextWindow": 500000,
+          "created": 1790007541,
+          "pricing": {
+            "prompt": "0.000002",
+            "completion": "0.000006"
+          }
+        },
+        {
+          "id": "x-ai/grok-4.7:batch",
+          "name": "SpaceXSI: Grok 4.7 (batch)",
+          "url": "https://openrouter.ai/x-ai/grok-4.7:batch",
+          "contextWindow": 500000,
+          "created": 1790007541,
+          "pricing": {
+            "prompt": "0.0000016",
+            "completion": "0.0000048"
+          }
+        },
+        {
+          "id": "x-ai/grok-4.6",
+          "name": "SpaceXSI: Grok 4.6",
+          "url": "https://openrouter.ai/x-ai/grok-4.6",
+          "contextWindow": 500000,
+          "created": 1786548957,
+          "pricing": {
+            "prompt": "0.000002",
+            "completion": "0.000006"
+          }
+        },
+        {
+          "id": "x-ai/grok-4.6:batch",
+          "name": "SpaceXSI: Grok 4.6 (batch)",
+          "url": "https://openrouter.ai/x-ai/grok-4.6:batch",
+          "contextWindow": 500000,
+          "created": 1786548957,
+          "pricing": {
+            "prompt": "0.0000016",
+            "completion": "0.0000048"
+          }
+        },
+        {
+          "id": "x-ai/grok-4.5",
+          "name": "SpaceXSI: Grok 4.5",
+          "url": "https://openrouter.ai/x-ai/grok-4.5",
+          "contextWindow": 500000,
+          "created": 1783523154,
+          "pricing": {
+            "prompt": "0.000002",
+            "completion": "0.000006"
+          }
+        }
+      ],
+      "status": null
+    },
+    {
+      "id": "moonshot",
+      "name": "Moonshot",
+      "family": "Kimi",
+      "url": "https://www.moonshot.cn",
+      "apiUrl": "https://platform.moonshot.cn/docs",
+      "catalogFresh": true,
+      "modelCount": 7,
+      "featuredModel": {
+        "id": "moonshotai/kimi-k3.1-pro",
+        "name": "MoonshotAI: Kimi K3.1 Pro",
+        "url": "https://openrouter.ai/moonshotai/kimi-k3.1-pro",
+        "contextWindow": 1048576,
+        "created": 1792778188,
+        "pricing": {
+          "prompt": "0.0000002403",
+          "completion": "0.0000084023"
+        }
+      },
+      "recentModels": [
+        {
+          "id": "moonshotai/kimi-k3.1-pro",
+          "name": "MoonshotAI: Kimi K3.1 Pro",
+          "url": "https://openrouter.ai/moonshotai/kimi-k3.1-pro",
+          "contextWindow": 1048576,
+          "created": 1792778188,
+          "pricing": {
+            "prompt": "0.0000002403",
+            "completion": "0.0000084023"
+          }
+        },
+        {
+          "id": "moonshotai/kimi-k3.1-pro:batch",
+          "name": "MoonshotAI: Kimi K3.1 Pro (batch)",
+          "url": "https://openrouter.ai/moonshotai/kimi-k3.1-pro:batch",
+          "contextWindow": 1048576,
+          "created": 1792778188,
+          "pricing": {
+            "prompt": "0.000000372",
+            "completion": "0.000005583"
+          }
+        },
+        {
+          "id": "moonshotai/kimi-k3",
+          "name": "MoonshotAI: Kimi K3",
+          "url": "https://openrouter.ai/moonshotai/kimi-k3",
+          "contextWindow": 1048576,
+          "created": 1784215858,
+          "pricing": {
+            "prompt": "0.000000192",
+            "completion": "0.000016"
+          }
+        },
+        {
+          "id": "moonshotai/kimi-k3:batch",
+          "name": "MoonshotAI: Kimi K3 (batch)",
+          "url": "https://openrouter.ai/moonshotai/kimi-k3:batch",
+          "contextWindow": 1048576,
+          "created": 1784215858,
+          "pricing": {
+            "prompt": "0.00000228",
+            "completion": "0.0000114"
+          }
+        },
+        {
+          "id": "moonshotai/kimi-k2.7-code",
+          "name": "MoonshotAI: Kimi K2.7 Code",
+          "url": "https://openrouter.ai/moonshotai/kimi-k2.7-code",
+          "contextWindow": 262144,
+          "created": 1781266361,
+          "pricing": {
+            "prompt": "0.0000006",
+            "completion": "0.000003"
+          }
+        }
+      ],
+      "status": null
+    },
+    {
+      "id": "zhipu",
+      "name": "Zhipu 智谱",
+      "family": "GLM",
+      "url": "https://www.zhipuai.cn",
+      "apiUrl": "https://open.bigmodel.cn",
+      "catalogFresh": true,
+      "modelCount": 20,
+      "featuredModel": {
+        "id": "z-ai/glm-5.3-flashx-legal",
+        "name": "Z.ai: GLM 5.3 FlashX Legal",
+        "url": "https://openrouter.ai/z-ai/glm-5.3-flashx-legal",
+        "contextWindow": 1048576,
+        "created": 1793626154,
+        "pricing": {
+          "prompt": "0.00000037",
+          "completion": "0.00000125"
+        }
+      },
+      "recentModels": [
+        {
+          "id": "z-ai/glm-5.3-flashx-legal",
+          "name": "Z.ai: GLM 5.3 FlashX Legal",
+          "url": "https://openrouter.ai/z-ai/glm-5.3-flashx-legal",
+          "contextWindow": 1048576,
+          "created": 1793626154,
+          "pricing": {
+            "prompt": "0.00000037",
+            "completion": "0.00000125"
+          }
+        },
+        {
+          "id": "z-ai/glm-5.3-prime",
+          "name": "Z.ai: GLM 5.3 Prime",
+          "url": "https://openrouter.ai/z-ai/glm-5.3-prime",
+          "contextWindow": 1000000,
+          "created": 1790199651,
+          "pricing": {
+            "prompt": "0.00000168",
+            "completion": "0.00000528"
+          }
+        },
+        {
+          "id": "z-ai/glm-5.3-flashx",
+          "name": "Z.ai: GLM 5.3 FlashX",
+          "url": "https://openrouter.ai/z-ai/glm-5.3-flashx",
+          "contextWindow": 1048576,
+          "created": 1789744020,
+          "pricing": {
+            "prompt": "0.00000037",
+            "completion": "0.00000125"
+          }
+        },
+        {
+          "id": "z-ai/glm-5.3-flash",
+          "name": "Z.ai: GLM 5.3 Flash",
+          "url": "https://openrouter.ai/z-ai/glm-5.3-flash",
+          "contextWindow": 1048576,
+          "created": 1787752741,
+          "pricing": {
+            "prompt": "0.00000012",
+            "completion": "0.00000038"
+          }
+        },
+        {
+          "id": "z-ai/glm-5.3-flash:batch",
+          "name": "Z.ai: GLM 5.3 Flash (batch)",
+          "url": "https://openrouter.ai/z-ai/glm-5.3-flash:batch",
+          "contextWindow": 1048576,
+          "created": 1787752741,
+          "pricing": {
+            "prompt": "0.000000023",
+            "completion": "0.000000068"
+          }
+        }
+      ],
+      "status": null
+    }
+  ],
+  "ollama": {
+    "version": "v0.40.18",
+    "name": "v0.40.18",
+    "url": "https://github.com/ollama/ollama/releases/tag/v0.40.18",
+    "publishedAt": "2026-11-24T04:18:13Z"
+  }
+}

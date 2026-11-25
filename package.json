@@ -6,6 +6,8 @@
   "description": "Clean personal navigation hub website deployable to free EdgeOne Pages / Cloudflare Pages / Vercel hosting",
   "scripts": {
     "dev": "vite",
+    "sync:ai": "node scripts/sync-ai-models.mjs --allow-fallback",
+    "prebuild": "node scripts/sync-ai-models.mjs --allow-fallback",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "test": "node --test tests/*.test.mjs"
