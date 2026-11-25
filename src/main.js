@@ -7,6 +7,8 @@ import {
 } from './store.js';
 import { loadAiRadarCache, fetchLiveAiRadar, formatContextWindow } from './aiRadar.js';
 import snapshot from './data/aiModelsSnapshot.json';
+import { THEME_VISUALS, MASCOTS, THEME_SWITCH_LINES, CATEGORY_LINES, AI_RADAR_SYNC_LINES, HITOKOTO_LIST, resolveMascotId, pickGreeting } from './data/acgDialogues.js';
+import { sanitizeCustomWallpaperInput } from './store.js';
 
 const root = document.querySelector('#app');
 let state = loadState();
@@ -15,6 +17,21 @@ let query = '';
 let provider = '全部';
 let radar = loadAiRadarCache() ?? snapshot;
 let syncing = false;
+let speech = '';
+let quoteIndex = 0;
+const mascotId = () => resolveMascotId(state.mascotId, state.theme);
+function speak(line) { speech = line || ''; const bubble = document.querySelector('#mascot-speech'); if (bubble) bubble.textContent = speech; }
+function sayFrom(lines, key) { speak(lines[key]?.[mascotId()]); }
+function chooseTheme(id) { state = saveState({ ...state, theme: id, customWallpaper: '' }); speech = THEME_SWITCH_LINES[id]?.[mascotId()] || ''; render(); }
+function picture(webp, jpg, width, height, attrs = {}) { return el('picture', {}, [el('source', { type: 'image/webp', srcset: webp }), el('img', { src: jpg, width, height, decoding: 'async', ...attrs })]); }
+function wallpaperDialog() {
+ const d = el('dialog', { id: 'wallpaper-dialog', closedby: 'any', 'aria-labelledby': 'wallpaper-title' });
+ const input = el('input', { type: 'url', value: state.customWallpaper, placeholder: 'https://example.com/wallpaper.jpg', 'aria-label': '自定义壁纸地址' });
+ const error = el('p', { className: 'error', role: 'alert' });
+ const modes = el('div', { className: 'chips' }, ['balanced', 'vivid'].map(mode => button(mode === 'balanced' ? '舒适磨砂' : '通透赏图', () => { state = saveState({ ...state, backdropMode: mode }); document.querySelector('.shell').dataset.backdropMode = mode; modes.querySelectorAll('button').forEach(b => { const active = b.dataset.mode === mode; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); }); }, { 'data-mode': mode, className: state.backdropMode === mode ? 'active' : '', 'aria-pressed': String(state.backdropMode === mode) })));
+ d.append(el('form', { onSubmit: e => { e.preventDefault(); try { state = saveState({ ...state, customWallpaper: sanitizeCustomWallpaperInput(input.value) }); d.close(); render(); toast('壁纸设置已保存'); } catch (err) { error.textContent = err.message; } } }, [el('h2', { id: 'wallpaper-title', textContent: '壁纸与画质' }), el('p', { textContent: '选择背景通透度，或输入自定义壁纸地址。' }), modes, el('label', {}, ['自定义壁纸地址', input]), error, el('div', { className: 'actions' }, [button('清空并恢复主题壁纸', () => { input.value = ''; }), button('取消', () => d.close()), el('button', { type: 'submit', textContent: '保存' })])]));
+ showDialog(d);
+}
 let fallbackKind = radar === snapshot ? '快照' : '缓存';
 radar = { ...radar, syncMode: radar === snapshot ? 'snapshot' : 'cache' };
 
@@ -115,6 +132,9 @@ function dialog(site) {
     field('标签（逗号分隔，最多三个）', tags), field('简短说明', desc), field('置顶', pin), error,
     el('div', { className: 'actions' }, [button('取消', () => d.close()), el('button', { type: 'submit', textContent: '保存' })]),
   ]));
+  showDialog(d);
+}
+function showDialog(d) {
   document.body.append(d);
   d.addEventListener('close', () => { d.returnValue = ''; d.remove(); });
   if (!('closedBy' in d)) {
@@ -131,13 +151,14 @@ function dialog(site) {
 async function sync() {
   if (syncing) return;
   syncing = true;
+  sayFrom(AI_RADAR_SYNC_LINES, 'syncing');
   render();
   try {
     fallbackKind = loadAiRadarCache() ? '缓存' : '快照';
     radar = await fetchLiveAiRadar({ fallbackSnapshot: snapshot });
   } catch (error) {
     toast(`同步失败：${error.message}`);
-  } finally { syncing = false; render(); }
+  } finally { syncing = false; sayFrom(AI_RADAR_SYNC_LINES, radar.syncMode); render(); }
 }
 function freshness(key) {
   return (radar.syncMode === 'live' || radar.syncMode === 'partial-live') && radar.sourceResults?.[key] === true
@@ -175,7 +196,11 @@ function radarCard(item) {
   ]);
 }
 function render() {
+  const focused = document.activeElement?.id === 'global-search-input';
+  const selection = focused ? document.activeElement.selectionStart : null;
   apply();
+  const visual = THEME_VISUALS[state.theme];
+  const mascot = MASCOTS[mascotId()];
   const engine = DEFAULT_SEARCH_ENGINES.find((item) => item.id === state.searchEngineId) || DEFAULT_SEARCH_ENGINES[0];
   const input = el('input', { id: 'global-search-input', 'aria-label': '搜索网站或输入关键词', placeholder: '搜索网站或输入关键词', value: query, onInput: (event) => { query = event.target.value; results(); } });
   const file = el('input', { type: 'file', accept: '.json,application/json', hidden: true, onChange: async (event) => {
@@ -187,13 +212,16 @@ function render() {
   } });
   const modes = { live: '🟢 实时同步', 'partial-live': '🟡 部分实时', cache: '💾 离线缓存', snapshot: '📦 构建快照' };
   const sources = [['openrouter', 'OpenRouter目录'], ['openaiStatus', 'OpenAI状态'], ['claudeStatus', 'Claude状态'], ['ollama', 'Ollama版本']];
-  const shell = el('main', { className: 'shell' }, [
+  const shell = el('main', { className: 'shell', 'data-backdrop-mode': state.backdropMode }, [
+    el('div', { id: 'backdrop-stage', className: 'backdrop-stage', 'aria-hidden': 'true' }, [state.customWallpaper && isSafeHttpUrl(state.customWallpaper) ? el('img', { className: 'backdrop-img', src: state.customWallpaper, width: 1376, height: 768, fetchpriority: 'high', decoding: 'async', alt: '' }) : picture(visual.bgWebp, visual.bgJpg, 1376, 768, { className: 'backdrop-img', fetchpriority: 'high', alt: '' }), el('div', { className: 'backdrop-scrim' })]),
     file,
     el('header', { className: 'topbar' }, [
       el('div', { className: 'brand' }, [el('span', { className: 'brand-icon', textContent: '✦' }), el('div', {}, [el('strong', { textContent: '极光导航 · NavHub' }), el('small', { textContent: '二次元 × Galgame × AI' })])]),
       el('div', { className: 'toolbar' }, [
-        el('div', { className: 'theme-group', role: 'radiogroup', 'aria-label': '主题' }, THEMES.map((theme) => button(theme.name, () => { state = saveState({ ...state, theme: theme.id }); render(); }, { role: 'radio', 'aria-checked': String(state.theme === theme.id), className: state.theme === theme.id ? 'active' : '' }))),
+        el('div', { className: 'theme-group', role: 'radiogroup', 'aria-label': '主题' }, THEMES.map((theme) => button(theme.name, () => chooseTheme(theme.id), { role: 'radio', 'aria-checked': String(state.theme === theme.id), className: state.theme === theme.id ? 'active' : '' }))),
         button(state.motionPaused ? '开启动效' : '暂停动效', () => { state = saveState({ ...state, motionPaused: !state.motionPaused }); render(); }),
+        button('壁纸与画质', wallpaperDialog),
+        button(state.mascotHidden ? '呼出看板娘' : '隐藏看板娘', () => { state = saveState({ ...state, mascotHidden: !state.mascotHidden }); render(); }, { 'aria-pressed': String(!state.mascotHidden) }),
         button('+ 添加网址', () => dialog()),
         button('导出', () => {
           const url = URL.createObjectURL(new Blob([exportStateJson(state)], { type: 'application/json' }));
@@ -204,17 +232,23 @@ function render() {
         confirmButton('重置', () => { state = saveState(createDefaultState()); category = '全部'; query = ''; render(); toast('已恢复默认导航'); }),
       ]),
     ]),
-    el('section', { className: 'hero' }, [
+    el('section', { className: 'hero-stage' }, [el('div', { className: 'hero hero-main hero-panel' }, [
       el('div', { className: 'emblem', 'aria-hidden': 'true' }, [crest()]),
       el('p', { className: 'eyebrow', textContent: 'YOUR LITTLE UNIVERSE' }),
-      el('h1', { textContent: '发现属于你的星空' }), el('p', { id: 'clock', className: 'clock' }),
+      el('h1', { textContent: '发现属于你的星空' }), el('p', { className: 'hero-subtitle', textContent: visual.sceneTitle + ' · ' + visual.tagline }),
+      el('div', { className: 'hitokoto' }, [el('span', { id: 'quote-text', textContent: HITOKOTO_LIST[quoteIndex].quote + ' — ' + HITOKOTO_LIST[quoteIndex].source }), button('换一句', () => { quoteIndex = (quoteIndex + 1) % HITOKOTO_LIST.length; document.querySelector('#quote-text').textContent = HITOKOTO_LIST[quoteIndex].quote + ' — ' + HITOKOTO_LIST[quoteIndex].source; })]), el('p', { id: 'clock', className: 'clock' }),
       chips(DEFAULT_SEARCH_ENGINES, state.searchEngineId, (item) => { state = saveState({ ...state, searchEngineId: item.id }); render(); }),
       el('form', { className: 'search', onSubmit: (event) => { event.preventDefault(); const url = buildSearchUrl(engine.id, input.value); if (isSafeHttpUrl(url)) window.open(url, '_blank', 'noopener,noreferrer'); } }, [
         input, button('清空', () => { query = ''; input.value = ''; results(); input.focus(); }, { className: 'clear-search', 'aria-label': '清空搜索' }),
         el('button', { type: 'submit', textContent: `${engine.name} 搜索` }),
       ]),
-      el('small', { className: 'search-hint', textContent: '按 / 快速搜索' }),
-    ]),
+      el('small', { className: 'search-hint', textContent: '按 / 快速搜索 · 探索你的世界线' }),
+      state.mascotHidden ? button('✦ 呼出看板娘', () => { state = saveState({ ...state, mascotHidden: false }); render(); }, { className: 'recall' }) : null,
+    ]), !state.mascotHidden ? el('aside', { id: 'mascot-panel', className: 'mascot-stage' }, [
+      el('button', { type: 'button', className: 'mascot-art', 'aria-label': '点击看板娘互动', onClick: () => { const lines = mascot.greetings.poke; speak(lines[Math.floor(Math.random() * lines.length)]); } }, [picture(mascot.avatarWebp, mascot.avatarJpg, 896, 1200, { alt: mascot.name + '立绘' })]),
+      el('div', { className: 'mascot-overlay' }, [el('span', { className: 'mascot-name', textContent: mascot.name + ' · ' + (mascot.id === 'sena' ? '星穹姬' : '昼樱姬') }), el('p', { id: 'mascot-speech', className: 'speech', 'aria-live': 'polite', textContent: speech || pickGreeting(mascot.id, new Date().getHours()) }), el('div', { className: 'mascot-controls' }, [['auto', '跟随主题'], ['sena', '星奈'], ['sakura', '樱雪']].map(([id, label]) => button(label, () => { state = saveState({ ...state, mascotId: id }); speech = ''; render(); }, { className: state.mascotId === id ? 'active' : '', 'aria-pressed': String(state.mascotId === id) })).concat(button('暂别', () => { state = saveState({ ...state, mascotHidden: true }); render(); })))])
+    ]) : null]),
+    el('section', { className: 'visual-gallery' }, [el('div', { className: 'gallery-heading' }, [el('div', {}, [el('p', { className: 'eyebrow', textContent: 'CHOOSE YOUR WORLDLINE' }), el('h2', { textContent: '✨ 精选世界线画廊' })]), el('span', { textContent: '点击即刻切换壁纸与主题' })]), el('div', { className: 'gallery-grid' }, THEMES.map(theme => el('button', { type: 'button', className: 'gallery-card' + (theme.id === state.theme ? ' active' : ''), 'aria-pressed': String(theme.id === state.theme), onClick: () => chooseTheme(theme.id) }, [picture(THEME_VISUALS[theme.id].bgWebp, THEME_VISUALS[theme.id].bgJpg, 1376, 768, { loading: 'lazy', alt: '' }), el('span', { className: 'gallery-caption' }, [el('strong', { textContent: theme.name }), el('small', { textContent: THEME_VISUALS[theme.id].sceneTitle }), theme.id === state.theme ? el('span', { className: 'gallery-current', textContent: '当前世界线' }) : null])])))]),
     el('section', {}, [el('h2', { textContent: '✦ 常用置顶' }), el('div', { className: 'grid' }, state.sites.filter((site) => site.pinned).map(card))]),
     el('section', { className: 'ai-radar-section' }, [
       el('div', { className: 'section-head ai-radar-header' }, [
@@ -226,11 +260,12 @@ function render() {
       chips(['全部', ...radar.providers.map((item) => ({ id: item.id, name: item.name }))], provider, (item) => { provider = item.id || item; render(); }),
       el('div', { className: 'grid radar-grid' }, radar.providers.filter((item) => provider === '全部' || item.id === provider).map(radarCard)),
     ]),
-    el('section', {}, [el('div', { className: 'section-head' }, [el('h2', { textContent: '探索网址库' }), el('span', { id: 'count' })]), chips(['全部', ...listCategories(state.sites)], category, (item) => { category = item; render(); }), el('div', { id: 'results', className: 'grid' })]),
+    el('section', {}, [el('div', { className: 'section-head' }, [el('h2', { textContent: '探索网址库' }), el('span', { id: 'count' })]), chips(['全部', ...listCategories(state.sites)], category, (item) => { category = item; sayFrom(CATEGORY_LINES, item); render(); }), el('div', { id: 'results', className: 'grid' })]),
     el('footer', { textContent: '✦ 在热爱中，发现更多可能 · NavHub' }),
   ]);
   root.replaceChildren(shell);
   results(); clock();
+  if (focused) { const field = shell.querySelector('#global-search-input'); field.focus(); field.setSelectionRange(selection, selection); }
 }
 function results() {
   const sites = filterSites(state.sites, { category, query });

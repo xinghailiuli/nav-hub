@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
@@ -16,6 +16,7 @@ import {
   loadState,
   normalizeUrl,
   resolveThemeId,
+  sanitizeCustomWallpaperInput,
   sanitizeImportedSites,
   saveState,
   STORAGE_KEY,
@@ -24,6 +25,7 @@ import {
   updateSite,
   validateSiteDraft,
 } from "../src/store.js";
+import { MASCOTS, THEME_VISUALS, pickGreeting, resolveMascotId } from "../src/data/acgDialogues.js";
 import { DEFAULT_CATEGORIES, DEFAULT_SEARCH_ENGINES } from "../src/data/defaultSites.js";
 
 function makeMemoryStorage() {
@@ -34,6 +36,53 @@ function makeMemoryStorage() {
     removeItem: (k) => map.delete(k),
   };
 }
+
+const defaultVisualPreferences = {
+  mascotId: "auto",
+  mascotHidden: false,
+  backdropMode: "balanced",
+  customWallpaper: "",
+};
+
+test("ACG artwork uses relative WebP and JPG paths backed by public files", async () => {
+  assert.deepEqual(Object.keys(THEME_VISUALS), THEMES.map(({ id }) => id));
+  assert.deepEqual(Object.keys(MASCOTS), ["sena", "sakura"]);
+  const artworkPairs = [
+    ...Object.values(THEME_VISUALS).map(({ bgWebp, bgJpg }) => [bgWebp, bgJpg]),
+    ...Object.values(MASCOTS).map(({ avatarWebp, avatarJpg }) => [avatarWebp, avatarJpg]),
+  ];
+  const publicDirectory = new URL("../public/", import.meta.url);
+  await Promise.all(artworkPairs.map(async ([webp, jpg]) => {
+    assert.match(webp, /^\.\/art\/[\w-]+\.webp$/);
+    assert.match(jpg, /^\.\/art\/[\w-]+\.jpg$/);
+    assert.equal(jpg, webp.replace(/\.webp$/, ".jpg"));
+    for (const path of [webp, jpg]) {
+      assert.ok((await stat(new URL(path, publicDirectory))).isFile(), path);
+    }
+  }));
+});
+
+test("mascot selection follows theme defaults and greetings follow hour boundaries", () => {
+  for (const [theme, expected] of [
+    ["starlight", "sena"], ["sakura", "sakura"], ["akiba", "sena"], ["miku", "sakura"],
+  ]) {
+    assert.equal(resolveMascotId("auto", theme), expected);
+    assert.equal(resolveMascotId("invalid", theme), expected);
+    assert.equal(resolveMascotId("sena", theme), "sena");
+    assert.equal(resolveMascotId("sakura", theme), "sakura");
+  }
+  assert.equal(resolveMascotId("auto", "unknown"), "sena");
+
+  for (const { id, greetings } of Object.values(MASCOTS)) {
+    assert.equal(pickGreeting(id), greetings.default);
+    for (const [hour, period] of [
+      [0, "night"], [4, "night"], [5, "morning"], [11, "morning"], [12, "afternoon"],
+      [18, "afternoon"], [19, "night"], [23, "night"],
+    ]) {
+      assert.equal(pickGreeting(id, hour), greetings[period]);
+    }
+  }
+});
 
 test("normalizeUrl auto-prepends https and blocks unsafe protocols", () => {
   assert.equal(normalizeUrl("bilibili.com"), "https://bilibili.com/");
@@ -109,6 +158,54 @@ test("filterSites, buildSearchUrl, and JSON export/import roundtrip work reliabl
   assert.throws(() => importStateJson(base, JSON.stringify({ sites: [{ name: "Bad", url: "javascript:alert(1)" }] })), /仅支持 http/);
 });
 
+test("visual preferences persist through storage and strict backup roundtrips", () => {
+  const base = createDefaultState();
+  const storage = makeMemoryStorage();
+  const rawWallpaper = "  cdn.example.com/images/wallpaper.webp?size=large&utm_source=test  ";
+  const customWallpaper = "https://cdn.example.com/images/wallpaper.webp?size=large";
+  const modified = { ...base, mascotId: "sakura", mascotHidden: true, backdropMode: "vivid", customWallpaper };
+
+  assert.equal(sanitizeCustomWallpaperInput(" \t "), "");
+  assert.equal(sanitizeCustomWallpaperInput(rawWallpaper), customWallpaper);
+  assert.equal(sanitizeCustomWallpaperInput("https://cdn.example.com/a@b.jpg"), "https://cdn.example.com/a@b.jpg");
+  const rawState = { ...modified, customWallpaper: rawWallpaper };
+  saveState(rawState, storage);
+  assert.deepEqual(loadState(storage), modified);
+  assert.deepEqual(importStateJson(base, exportStateJson(rawState)), modified);
+  assert.deepEqual(importStateJson(base, JSON.stringify(rawState)), modified);
+  assert.deepEqual(importStateJson(modified, exportStateJson(base)), base);
+  assert.deepEqual(importStateJson(modified, JSON.stringify(base.sites)), modified);
+  assert.deepEqual(importStateJson(modified, JSON.stringify({ sites: modified.sites })), modified);
+});
+
+test("invalid visual preferences fall back safely without losing other settings", () => {
+  const base = createDefaultState();
+  const storage = makeMemoryStorage();
+  const invalid = {
+    ...base, mascotId: "unknown", mascotHidden: "true", backdropMode: "unknown", customWallpaper: false,
+  };
+  const current = { ...base, theme: "akiba", mascotId: "sena", mascotHidden: true, backdropMode: "vivid" };
+  assert.throws(() => sanitizeCustomWallpaperInput(false), /壁纸网址/);
+  for (const wallpaper of [
+    "javascript:alert(1)", "data:image/svg+xml,unsafe", "file:///wallpaper.jpg",
+    "blob:https://cdn.example.com/wallpaper", "https://user:pass@cdn.example.com/wallpaper.jpg",
+    "https://@cdn.example.com/wallpaper.jpg",
+  ]) {
+    assert.throws(() => sanitizeCustomWallpaperInput(wallpaper), /仅支持 http/);
+    const unsafe = { ...invalid, theme: "unknown", customWallpaper: wallpaper };
+    saveState(unsafe, storage);
+    assert.deepEqual(loadState(storage), base);
+    assert.deepEqual(importStateJson(current, JSON.stringify(unsafe)), base);
+    assert.equal(JSON.parse(exportStateJson(unsafe)).customWallpaper, "");
+  }
+
+  const badWallpaper = { ...current, customWallpaper: "javascript:alert(1)" };
+  saveState(badWallpaper, storage);
+  assert.deepEqual(loadState(storage), current);
+  assert.deepEqual(importStateJson(base, JSON.stringify(badWallpaper)), current);
+  assert.deepEqual(importStateJson(current, exportStateJson(invalid)), base);
+});
+
 test("only explicit HTTP(S) URLs qualify as safe external links", () => {
   for (const url of ["javascript:alert(1)", "data:text/html,hi", "vbscript:x", "", "/path",
     "//evil.example", "https:example.com", "https:///example.com", "https://user@example.com",
@@ -164,6 +261,8 @@ test("legacy migration preserves user edits, fills missing fields, and writes v2
   assert.equal(migrated.theme, "sakura");
   assert.equal(migrated.searchEngineId, "google");
   assert.equal(migrated.motionPaused, true);
+  const { mascotId, mascotHidden, backdropMode, customWallpaper } = migrated;
+  assert.deepEqual({ mascotId, mascotHidden, backdropMode, customWallpaper }, defaultVisualPreferences);
   assert.equal(migrated.sites.length, 26);
   assert.deepEqual(migrated.sites[0], {
     id: "mine", name: "我的 VNDB", url: "https://vndb.org/", pinned: false,

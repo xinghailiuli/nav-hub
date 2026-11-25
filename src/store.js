@@ -10,6 +10,12 @@ export const THEMES = [
 ];
 
 const ACCENT_PALETTE = ["#38bdf8", "#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#0ea5e9"];
+const DEFAULT_VISUAL_PREFERENCES = {
+  mascotId: "auto",
+  mascotHidden: false,
+  backdropMode: "balanced",
+  customWallpaper: "",
+};
 const LEGACY_SEARCH_TEMPLATES = new Map([
   ["baidu", "https://www.baidu.com/s?wd={q}"],
   ["zhihu", "https://www.zhihu.com/search?type=content&q={q}"],
@@ -17,6 +23,7 @@ const LEGACY_SEARCH_TEMPLATES = new Map([
 
 export function isSafeHttpUrl(rawUrl) {
   if (typeof rawUrl !== "string" || !/^https?:\/\/[^/\s?#\\]/i.test(rawUrl)
+    || /^https?:\/\/[^/?#]*@/i.test(rawUrl)
     || /[\u0000-\u0020\u007f\\]/.test(rawUrl)) return false;
   try {
     const parsed = new URL(rawUrl);
@@ -52,6 +59,14 @@ export function normalizeUrl(rawInput) {
   return parsed.toString();
 }
 
+export function sanitizeCustomWallpaperInput(raw) {
+  if (typeof raw !== "string") throw new Error("请输入有效的壁纸网址");
+  if (!raw.trim()) return "";
+  const url = normalizeUrl(raw);
+  if (!isSafeHttpUrl(url)) throw new Error("壁纸仅支持 http:// 或 https:// 开头的安全网址");
+  return url;
+}
+
 export function extractDomainLabel(rawUrl) {
   try {
     return new URL(rawUrl).hostname.replace(/^www\./, "");
@@ -73,6 +88,7 @@ export function createDefaultState() {
     version: 2,
     theme: THEMES[0].id,
     motionPaused: false,
+    ...DEFAULT_VISUAL_PREFERENCES,
     searchEngineId: DEFAULT_SEARCH_ENGINES[0].id,
     sites: DEFAULT_SITES.map((site) => ({ ...site, url: normalizeUrl(site.url), tags: [...site.tags] })),
   };
@@ -86,6 +102,23 @@ function knownThemeId(value) {
 
 export function resolveThemeId(value) {
   return knownThemeId(value) ?? THEMES[0].id;
+}
+
+function sanitizeVisualPreferences({ mascotId, mascotHidden, backdropMode, customWallpaper }) {
+  let wallpaper = DEFAULT_VISUAL_PREFERENCES.customWallpaper;
+  if (typeof customWallpaper === "string") {
+    try {
+      wallpaper = sanitizeCustomWallpaperInput(customWallpaper);
+    } catch {
+      // Recover the other preferences when the saved wallpaper URL is invalid.
+    }
+  }
+  return {
+    mascotId: ["auto", "sena", "sakura"].includes(mascotId) ? mascotId : DEFAULT_VISUAL_PREFERENCES.mascotId,
+    mascotHidden: mascotHidden === true,
+    backdropMode: ["balanced", "vivid"].includes(backdropMode) ? backdropMode : DEFAULT_VISUAL_PREFERENCES.backdropMode,
+    customWallpaper: wallpaper,
+  };
 }
 
 function sanitizeTags(value) {
@@ -189,6 +222,7 @@ export function loadState(storage) {
       ...fallback,
       theme: resolveThemeId(parsed.theme),
       motionPaused: parsed.motionPaused === true,
+      ...sanitizeVisualPreferences(parsed),
       searchEngineId: engineOk ? parsed.searchEngineId : fallback.searchEngineId,
       sites: parsed.sites.length > 0 && sites.length === 0 ? fallback.sites : sites,
     };
@@ -299,6 +333,7 @@ export function exportStateJson(state) {
       exportedAt: new Date().toISOString(),
       theme: state.theme,
       motionPaused: state.motionPaused === true,
+      ...sanitizeVisualPreferences(state),
       searchEngineId: state.searchEngineId,
       sites: state.sites,
     },
@@ -317,12 +352,14 @@ export function importStateJson(currentState, rawJson) {
   const imported = Array.isArray(parsed) ? parsed : parsed?.sites;
   const sites = Array.isArray(parsed?.sites) && imported.length === 0 ? [] : sanitizeImportedSites(imported);
   const engineOk = DEFAULT_SEARCH_ENGINES.some((e) => e.id === parsed?.searchEngineId);
-  const theme = knownThemeId(parsed?.theme);
+  const hasTheme = Object.hasOwn(parsed, "theme");
+  const preferences = Array.isArray(parsed) ? currentState : { ...currentState, ...parsed };
   return {
     ...currentState,
     version: 2,
-    ...(theme ? { theme } : {}),
+    ...(hasTheme ? { theme: resolveThemeId(parsed.theme) } : {}),
     ...(typeof parsed?.motionPaused === "boolean" ? { motionPaused: parsed.motionPaused } : {}),
+    ...sanitizeVisualPreferences(preferences),
     ...(engineOk ? { searchEngineId: parsed.searchEngineId } : {}),
     sites,
   };
