@@ -178,7 +178,45 @@ export const HITOKOTO_LIST = [
   },
 ];
 
-// Relative luminance sampled from the bundled CGs for the daylight reading scrim.
+function artworkPaths(id) {
+  return { id, bgWebp: `./art/${id}.webp`, bgJpg: `./art/${id}.jpg` };
+}
+
+function siteArtwork(id) {
+  return { ...artworkPaths(id), objectPosition: "74% 30%" };
+}
+
+export const SITE_ARTWORKS = {
+  "site-vndb": siteArtwork("cg-galgame"),
+  "site-ymgal": siteArtwork("cg-ymgal"),
+  "site-2dfan": siteArtwork("cg-2dfan"),
+  "site-steam-vn": siteArtwork("bg-sakura"),
+  "site-bangumi": siteArtwork("cg-bangumi"),
+  "site-bili-anime": siteArtwork("cg-bili"),
+  "site-gamer-ani": siteArtwork("bg-akiba"),
+  "site-mal": siteArtwork("cg-mal"),
+  "site-anilist": siteArtwork("cg-anilist"),
+  "site-pixiv": siteArtwork("cg-pixiv"),
+  "site-moegirl": siteArtwork("cg-moegirl"),
+  "site-zhihu": siteArtwork("cg-zhihu"),
+  "site-canva": siteArtwork("cg-canva"),
+  "site-deepseek": siteArtwork("cg-radar"),
+  "site-chatgpt": siteArtwork("bg-starlight"),
+  "site-claude": siteArtwork("cg-claude"),
+  "site-gemini": siteArtwork("cg-gemini"),
+  "site-kimi": siteArtwork("cg-kimi"),
+  "site-tongyi": siteArtwork("cg-tongyi"),
+  "site-github": siteArtwork("cg-nightcafe"),
+  "site-cloudflare": siteArtwork("cg-cloudflare"),
+  "site-edgeone": siteArtwork("bg-miku"),
+  "site-deepl": siteArtwork("cg-deepl"),
+  "site-notion": siteArtwork("cg-notion"),
+  "site-txdocs": siteArtwork("cg-txdocs"),
+};
+
+const siteArtworkPool = Object.values(SITE_ARTWORKS);
+
+// Relative luminance sampled from the original CGs for the daylight reading scrim.
 export const CG_ARTWORKS = [
   {
     id: "cg-galgame", title: "放学后的约定", subtitle: "夕光落进视觉小说的下一幕", tag: "Galgame CG",
@@ -186,9 +224,21 @@ export const CG_ARTWORKS = [
     luminance: 0.3845,
   },
   {
+    ...artworkPaths("cg-ymgal"), title: "月幕未合", subtitle: "把未读完的故事留给下一轮月光", tag: "月下书页",
+  },
+  {
+    ...artworkPaths("cg-bangumi"), title: "放映前一刻", subtitle: "灯光渐暗，等候下一帧相遇", tag: "番组手账",
+  },
+  {
+    ...artworkPaths("cg-bili"), title: "同看一片星光", subtitle: "弹幕掠过屏幕，照亮此刻的共鸣", tag: "浮光弹幕",
+  },
+  {
     id: "cg-pixiv", title: "流光画室", subtitle: "沿着色彩寻找下一笔灵感", tag: "二次元插画",
     bgWebp: "./art/cg-pixiv.webp", bgJpg: "./art/cg-pixiv.jpg", categoryHint: "二次元插画与社区",
     luminance: 0.2755,
+  },
+  {
+    ...artworkPaths("cg-moegirl"), title: "词条里的小宇宙", subtitle: "沿着页边的注脚，拾起散落的故事", tag: "萌系图鉴",
   },
   {
     id: "cg-nightcafe", title: "深夜咖啡馆", subtitle: "留一盏灯给夜归的旅人", tag: "夜间场景",
@@ -204,9 +254,16 @@ export const CG_ARTWORKS = [
 
 const cardPositions = ["82% 20%", "72% 50%", "88% 80%"];
 
-export function pickSiteArt(category, index = 0) {
-  const artwork = CG_ARTWORKS.find((art) => art.categoryHint === category)
-    ?? CG_ARTWORKS[category === "云端部署与效率" ? 3 : 2];
+export function pickSiteArt(siteOrCategory, index = 0) {
+  if (siteOrCategory && typeof siteOrCategory === "object") {
+    if (Object.hasOwn(SITE_ARTWORKS, siteOrCategory.id)) return SITE_ARTWORKS[siteOrCategory.id];
+    const position = Number.isInteger(index) && index >= 0 ? index % siteArtworkPool.length : 0;
+    return siteArtworkPool[position];
+  }
+
+  const fallbackId = siteOrCategory === "云端部署与效率" ? "cg-radar" : "cg-nightcafe";
+  const artwork = CG_ARTWORKS.find((art) => art.categoryHint && art.categoryHint === siteOrCategory)
+    ?? CG_ARTWORKS.find((art) => art.id === fallbackId);
   return { ...artwork, objectPosition: cardPositions[index % cardPositions.length] ?? cardPositions[0] };
 }
 

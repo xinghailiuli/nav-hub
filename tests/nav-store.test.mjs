@@ -25,8 +25,8 @@ import {
   updateSite,
   validateSiteDraft,
 } from "../src/store.js";
-import { CG_ARTWORKS, HAGEMI_PET, MASCOTS, THEME_VISUALS, pickGreeting, pickSiteArt, resolveMascotId } from "../src/data/acgDialogues.js";
-import { DEFAULT_CATEGORIES, DEFAULT_SEARCH_ENGINES } from "../src/data/defaultSites.js";
+import { CG_ARTWORKS, HAGEMI_PET, MASCOTS, SITE_ARTWORKS, THEME_VISUALS, pickGreeting, pickSiteArt, resolveMascotId } from "../src/data/acgDialogues.js";
+import { DEFAULT_CATEGORIES, DEFAULT_SEARCH_ENGINES, DEFAULT_SITES } from "../src/data/defaultSites.js";
 
 function makeMemoryStorage() {
   const map = new Map();
@@ -62,32 +62,91 @@ test("ACG artwork uses relative WebP and JPG paths backed by public files", asyn
   }));
 });
 
-test("CG illustrations and all six Hagemi poses have matching public artwork files", async () => {
+async function assertArtworkPair(stem, webp, fallback, extension) {
+  assert.equal(webp, `./art/${stem}.webp`);
+  assert.equal(fallback, `./art/${stem}.${extension}`);
   const publicDirectory = new URL("../public/", import.meta.url);
-  const assertPair = async (stem, webp, fallback, extension) => {
-    assert.equal(webp, `./art/${stem}.webp`);
-    assert.equal(fallback, `./art/${stem}.${extension}`);
-    for (const path of [webp, fallback]) {
-      const file = await stat(new URL(path, publicDirectory));
-      assert.ok(file.isFile() && file.size > 0, path);
-    }
-  };
+  for (const path of [webp, fallback]) {
+    const file = await stat(new URL(path, publicDirectory));
+    assert.ok(file.isFile() && file.size > 0, path);
+  }
+}
 
-  assert.deepEqual(CG_ARTWORKS.map(({ id }) => id), ["cg-galgame", "cg-pixiv", "cg-nightcafe", "cg-radar"]);
+test("CG illustrations and all six Hagemi poses have matching public artwork files", async () => {
+  assert.deepEqual(CG_ARTWORKS.map(({ id }) => id), [
+    "cg-galgame", "cg-ymgal", "cg-bangumi", "cg-bili", "cg-pixiv", "cg-moegirl", "cg-nightcafe", "cg-radar",
+  ]);
+  assert.equal(new Set([...Object.values(THEME_VISUALS), ...CG_ARTWORKS].map(({ bgWebp }) => bgWebp)).size, 12);
   assert.deepEqual(Object.keys(HAGEMI_PET.poses), ["idle", "happy", "pat", "searching", "thinking", "surprised"]);
   await Promise.all([
-    ...CG_ARTWORKS.map(({ id, bgWebp, bgJpg }) => assertPair(id, bgWebp, bgJpg, "jpg")),
-    ...Object.entries(HAGEMI_PET.poses).map(([pose, { webp, png }]) => assertPair(`pet-${pose}`, webp, png, "png")),
+    ...CG_ARTWORKS.map(({ id, bgWebp, bgJpg }) => assertArtworkPair(id, bgWebp, bgJpg, "jpg")),
+    ...Object.entries(HAGEMI_PET.poses).map(([pose, { webp, png }]) => assertArtworkPair(`pet-${pose}`, webp, png, "png")),
   ]);
 });
 
 test("site art maps categories and offsets neighboring crops", () => {
-  for (const art of CG_ARTWORKS) assert.equal(pickSiteArt(art.categoryHint, 0).id, art.id);
+  for (const [category, id] of [
+    ["Galgame 档案", "cg-galgame"], ["动漫追番", "cg-nightcafe"],
+    ["二次元插画与社区", "cg-pixiv"], ["AI 大模型入口", "cg-radar"],
+  ]) assert.equal(pickSiteArt(category, 0).id, id);
   assert.equal(pickSiteArt("云端部署与效率", 0).id, "cg-radar");
   assert.equal(pickSiteArt("自定义标签", 0).id, "cg-nightcafe");
   const positions = [0, 1, 2, 3].map((index) => pickSiteArt("Galgame 档案", index).objectPosition);
   assert.equal(new Set(positions.slice(0, 3)).size, 3);
   assert.equal(positions[0], positions[3]);
+});
+
+test("all 25 default sites have their specified artwork without duplicate paths", () => {
+  const expected = {
+    "site-vndb": "cg-galgame",
+    "site-ymgal": "cg-ymgal",
+    "site-2dfan": "cg-2dfan",
+    "site-steam-vn": "bg-sakura",
+    "site-bangumi": "cg-bangumi",
+    "site-bili-anime": "cg-bili",
+    "site-gamer-ani": "bg-akiba",
+    "site-mal": "cg-mal",
+    "site-anilist": "cg-anilist",
+    "site-pixiv": "cg-pixiv",
+    "site-moegirl": "cg-moegirl",
+    "site-zhihu": "cg-zhihu",
+    "site-canva": "cg-canva",
+    "site-deepseek": "cg-radar",
+    "site-chatgpt": "bg-starlight",
+    "site-claude": "cg-claude",
+    "site-gemini": "cg-gemini",
+    "site-kimi": "cg-kimi",
+    "site-tongyi": "cg-tongyi",
+    "site-github": "cg-nightcafe",
+    "site-cloudflare": "cg-cloudflare",
+    "site-edgeone": "bg-miku",
+    "site-deepl": "cg-deepl",
+    "site-notion": "cg-notion",
+    "site-txdocs": "cg-txdocs",
+  };
+  const selected = DEFAULT_SITES.map((site, index) => {
+    const art = pickSiteArt(site, index);
+    assert.equal(art, SITE_ARTWORKS[site.id]);
+    assert.equal(art.id, expected[site.id], site.id);
+    return art;
+  });
+  assert.deepEqual(Object.keys(SITE_ARTWORKS).sort(), Object.keys(expected).sort());
+  assert.equal(new Set(selected.map(({ bgWebp }) => bgWebp)).size, 25);
+  assert.equal(new Set(selected.map(({ bgJpg }) => bgJpg)).size, 25);
+});
+
+test("site artwork and gallery artwork have bundled WebP and JPEG files", async () => {
+  await Promise.all([...Object.values(SITE_ARTWORKS), ...CG_ARTWORKS]
+    .map(({ id, bgWebp, bgJpg }) => assertArtworkPair(id, bgWebp, bgJpg, "jpg")));
+});
+
+test("custom sites cycle through all 25 artworks before repeating", () => {
+  const selected = Array.from({ length: 26 }, (_, index) =>
+    pickSiteArt({ id: `custom-${index}`, category: "Galgame 档案" }, index));
+  assert.deepEqual(selected.slice(0, 25), Object.values(SITE_ARTWORKS));
+  assert.equal(new Set(selected.slice(0, 25).map(({ bgWebp }) => bgWebp)).size, 25);
+  assert.equal(selected[25], selected[0]);
+  assert.equal(pickSiteArt({ id: "constructor" }, 0), selected[0]);
 });
 
 test("mascot selection follows theme defaults and greetings follow hour boundaries", () => {

@@ -1,6 +1,6 @@
 {
   "snapshotSource": "build-live",
-  "generatedAt": "2026-11-26T11:33:29.099Z",
+  "generatedAt": "2026-11-26T14:02:11.933Z",
   "syncMode": "snapshot",
   "sourceResults": {
     "openrouter": true,
@@ -304,8 +304,8 @@
           "contextWindow": 1048576,
           "created": 1789021285,
           "pricing": {
-            "prompt": "0.00000014",
-            "completion": "0.00000042"
+            "prompt": "0.0000000507",
+            "completion": "0.0000002028"
           }
         },
         {
@@ -496,7 +496,7 @@
       "url": "https://www.moonshot.cn",
       "apiUrl": "https://platform.moonshot.cn/docs",
       "catalogFresh": true,
-      "modelCount": 7,
+      "modelCount": 8,
       "featuredModel": {
         "id": "moonshotai/kimi-k3.1-pro",
         "name": "MoonshotAI: Kimi K3.1 Pro",

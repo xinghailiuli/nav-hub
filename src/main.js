@@ -8,7 +8,7 @@ import { loadAiRadarCache, fetchLiveAiRadar, formatContextWindow } from './aiRad
 import snapshot from './data/aiModelsSnapshot.json';
 import {
   THEME_VISUALS, MASCOTS, THEME_SWITCH_LINES, CATEGORY_LINES, AI_RADAR_SYNC_LINES,
-  HITOKOTO_LIST, CG_ARTWORKS, HAGEMI_PET, resolveMascotId, pickGreeting, pickSiteArt,
+  HITOKOTO_LIST, CG_ARTWORKS, SITE_ARTWORKS, HAGEMI_PET, resolveMascotId, pickGreeting, pickSiteArt,
 } from './data/acgDialogues.js';
 
 const root = document.querySelector('#app');
@@ -180,12 +180,12 @@ function apply() {
   document.querySelector('#meta-theme-color').content = theme.themeColor;
 }
 function card(site, index) {
-  const art = pickSiteArt(site.category, index);
+  const art = pickSiteArt(site, index);
   return el('article', {
     className: 'site-card',
     style: `--site-accent:${safeAccent(site.accent)};--cg-position:${art.objectPosition}`,
   }, [
-    picture(art.bgWebp, art.bgJpg, 1376, 768, '', { className: 'card-cg', 'aria-hidden': 'true' }, { loading: 'lazy' }),
+    picture(art.bgWebp, art.bgJpg, 960, 540, '', { className: 'card-cg', 'aria-hidden': 'true' }, { loading: 'lazy' }),
     el('div', { className: 'card-top' }, [
       el('span', { className: 'avatar', 'aria-hidden': 'true', textContent: site.name.slice(0, 1) }),
       el('div', { title: site.name }, [link(site.name, site.url), el('small', { textContent: site.category, title: site.category })]),
@@ -198,6 +198,12 @@ function card(site, index) {
       confirmButton('删除', () => { state = saveState(deleteSite(state, site.id)); render(); toast('网址已删除'); }, { 'aria-label': `删除 ${site.name}` }),
     ]),
   ]);
+}
+function siteCards(sites) {
+  const customIndexes = new Map(state.sites
+    .filter(({ id }) => !Object.hasOwn(SITE_ARTWORKS, id))
+    .map(({ id }, index) => [id, index]));
+  return sites.map((site) => card(site, customIndexes.get(site.id)));
 }
 function dialog(site) {
   const d = el('dialog', { id: 'site-dialog', closedby: 'any', 'aria-labelledby': 'dialog-title' });
@@ -727,7 +733,7 @@ function render() {
             ),
           ]),
         ]),
-        el('section', {}, [el('h2', { textContent: '常用置顶' }), el('div', { className: 'grid' }, state.sites.filter((site) => site.pinned).map(card))]),
+        el('section', {}, [el('h2', { textContent: '常用置顶' }), el('div', { className: 'grid' }, siteCards(state.sites.filter((site) => site.pinned)))]),
         el('section', { id: 'ai-radar-section', className: 'ai-radar-section' }, [
           picture(radarArt.bgWebp, radarArt.bgJpg, 1376, 768, '', { className: 'radar-backdrop', 'aria-hidden': 'true' }),
           el('div', { id: 'ai-radar-body' }, aiRadarContent()),
@@ -762,7 +768,7 @@ function render() {
 }
 function results() {
   const sites = filterSites(state.sites, { category, query });
-  document.querySelector('#results')?.replaceChildren(...sites.map(card));
+  document.querySelector('#results')?.replaceChildren(...siteCards(sites));
   const count = document.querySelector('#count');
   if (count) count.textContent = `${sites.length} 个网址`;
 }
