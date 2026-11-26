@@ -39,7 +39,7 @@
       hasWallpaper = Boolean(parsed.hostname) && !parsed.username && !parsed.password;
     } catch {}
   }
-  if (typeof document.createElement === "function" && document.head && !hasWallpaper) {
+  if (!hasWallpaper && document.head) {
     const preload = document.createElement("link");
     preload.rel = "preload";
     preload.as = "image";
@@ -50,19 +50,18 @@
   }
 })();
 </script>
-  <style>
-    body{margin:0;isolation:isolate}
-    .ambient-layer{position:fixed;inset:0;overflow:hidden;pointer-events:none;visibility:hidden}
-    .backdrop-stage{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
-    .backdrop-stage picture,.backdrop-img{display:block;width:100%;height:100%}
-    .backdrop-img{object-fit:cover;object-position:76% 18%}
-  </style>
+  <style>.backdrop-stage{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}.backdrop-stage picture,.backdrop-img{display:block;width:100%;height:100%}.backdrop-img{object-fit:cover;object-position:76% 18%}</style>
+  <link rel="stylesheet" href="/src/styles.css">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2310142f'/%3E%3Cpath d='M32 8l6 18 18 6-18 6-6 18-6-18-18-6 18-6z' fill='%23ac8cff'/%3E%3C/svg%3E">
   <title>极光导航 NavHub · 二次元、Galgame 与 AI 模型雷达</title>
 </head>
 <body>
   <div id="backdrop-stage" class="backdrop-stage" aria-hidden="true">
-    <picture id="backdrop-picture"><source id="backdrop-webp" type="image/webp" srcset="./art/bg-starlight.webp"><img id="backdrop-img" class="backdrop-img" src="./art/bg-starlight.jpg" width="1376" height="768" fetchpriority="high" decoding="async" alt=""></picture><div class="backdrop-scrim"></div>
+    <picture id="backdrop-picture">
+      <source id="backdrop-webp" type="image/webp" srcset="./art/bg-starlight.webp">
+      <img id="backdrop-img" class="backdrop-img" src="./art/bg-starlight.jpg" width="1376" height="768" fetchpriority="high" decoding="async" alt="">
+    </picture>
+    <div class="backdrop-scrim"></div>
   </div>
   <script>
 (() => {
@@ -74,67 +73,14 @@
   if (typeof raw === "string" && /^https?:\/\/[^/\s?#\\]/i.test(raw) && !/^https?:\/\/[^/?#]*@/i.test(raw) && !/[\u0000-\u0020\u007f\\]/.test(raw)) {
     try { const url = new URL(raw); if (url.hostname && !url.username && !url.password) wallpaper = url.href; } catch {}
   }
-  if (wallpaper || base !== "./art/bg-starlight") { document.getElementById("backdrop-webp").srcset = wallpaper ? "" : base + ".webp"; document.getElementById("backdrop-img").src = wallpaper || base + ".jpg"; }
+  const stage = document.getElementById("backdrop-stage");
+  stage.dataset.backdropMode = state?.backdropMode === "vivid" ? "vivid" : "balanced";
+  if (wallpaper || base !== "./art/bg-starlight") {
+    document.getElementById("backdrop-webp").srcset = wallpaper ? "" : base + ".webp";
+    document.getElementById("backdrop-img").src = wallpaper || base + ".jpg";
+  }
 })();
   </script>
-  <div class="ambient-layer" aria-hidden="true">
-
-<svg class="particle particle-1" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
-      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
-      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
-      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
-    </svg>
-
-<svg class="particle particle-2" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
-      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
-      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
-      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
-    </svg>
-
-<svg class="particle particle-3" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
-      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
-      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
-      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
-    </svg>
-
-<svg class="particle particle-4" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
-      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
-      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
-      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
-    </svg>
-
-<svg class="particle particle-5" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
-      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
-      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
-      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
-    </svg>
-
-<svg class="particle particle-6" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
-      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
-      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
-      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
-    </svg>
-
-<svg class="particle particle-7" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
-      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
-      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
-      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
-    </svg>
-
-<svg class="particle particle-8" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="star" d="M12 1 14.5 9.5 23 12 14.5 14.5 12 23 9.5 14.5 1 12 9.5 9.5Z"/>
-      <path class="petal" d="M12 3C3 3 3 15 12 21c9-6 9-18 0-18Z"/>
-      <path class="cross" d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"/>
-      <path class="diamond" d="M12 2 20 12 12 22 4 12Z"/>
-    </svg>
-  </div>
   <div id="app"></div>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="/src/main.js"></script>
