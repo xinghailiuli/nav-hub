@@ -8,7 +8,8 @@ import { loadAiRadarCache, fetchLiveAiRadar, formatContextWindow } from './aiRad
 import snapshot from './data/aiModelsSnapshot.json';
 import {
   THEME_VISUALS, MASCOTS, THEME_SWITCH_LINES, CATEGORY_LINES, AI_RADAR_SYNC_LINES,
-  HITOKOTO_LIST, CG_ARTWORKS, SITE_ARTWORKS, HAGEMI_PET, resolveMascotId, pickGreeting, pickSiteArt,
+  HITOKOTO_LIST, CG_ARTWORKS, SITE_ARTWORKS, HAGEMI_PET, CROSSPET_ROSTER,
+  resolveCrossPet, resolveMascotId, pickGreeting, pickSiteArt,
 } from './data/acgDialogues.js';
 
 const root = document.querySelector('#app');
@@ -18,6 +19,8 @@ const backdropStage = document.querySelector('#backdrop-stage');
 const backdropSource = document.querySelector('#backdrop-webp');
 const backdropImage = document.querySelector('#backdrop-img');
 const radarArt = CG_ARTWORKS.find(({ id }) => id === 'cg-radar');
+const crossPets = Object.values(CROSSPET_ROSTER);
+const supportsPopover = 'popover' in HTMLElement.prototype;
 let state = loadState();
 let category = '全部';
 let query = '';
@@ -29,44 +32,50 @@ let speech = '';
 let petMood = 'idle';
 let petSpeech = '';
 let petTimer;
-let petPokes = 0;
 let quoteIndex = 0;
-const isPet = () => state.mascotId === 'auto';
+const activePet = () => resolveCrossPet(state.mascotId);
 const mascotId = () => resolveMascotId(state.mascotId, state.theme);
-const isCurrentMascot = (id) => !state.mascotHidden && state.mascotId === id;
-const mascotPickLabel = (current, id) => id === 'auto' ? '切回哈基米桌宠' : current ? '当前陪伴中' : '设为看板娘';
+const selectedMascotId = () => activePet()?.id ?? mascotId();
+const isCurrentMascot = (id) => !state.mascotHidden && selectedMascotId() === id;
+const mascotPickLabel = (current, id) => current ? '当前陪伴中' : resolveCrossPet(id) ? '召唤陪伴' : '设为看板娘';
 const pickLine = (lines) => lines[Math.floor(Math.random() * lines.length)];
-function petGreeting() {
-  const hour = new Date().getHours();
-  return HAGEMI_PET.greetings[hour < 5 || hour >= 19 ? 'midnight' : hour < 12 ? 'morning' : 'afternoon'];
-}
 function setPetMood(mood, line = '', duration = 0) {
   clearTimeout(petTimer);
   petMood = mood;
   petSpeech = line;
+  const pet = activePet();
   const art = shell.querySelector('.is-pet .mascot-art');
-  if (art) {
-    const { webp, png } = HAGEMI_PET.poses[mood];
-    const source = art.querySelector('source');
-    const image = art.querySelector('img');
-    if (source.getAttribute('srcset') !== webp) source.srcset = webp;
-    if (image.getAttribute('src') !== png) image.src = png;
+  const portrait = art?.firstElementChild;
+  if (pet && portrait) {
+    const webp = pet.poses[mood];
+    const src = pet.id === 'gemini' ? HAGEMI_PET.poses[mood].png : webp;
+    const source = portrait.querySelector('source');
+    const image = portrait.matches('img') ? portrait : portrait.querySelector('img');
+    if (source && source.getAttribute('srcset') !== webp) source.srcset = webp;
+    if (image.getAttribute('src') !== src) image.src = src;
     art.classList.toggle('is-idle', mood === 'idle');
     const bubble = shell.querySelector('#mascot-speech');
-    const text = line || petGreeting();
+    const text = line || pet.greeting;
     if (bubble.textContent !== text) bubble.textContent = text;
   }
   if (duration) petTimer = setTimeout(restPet, duration);
 }
-function restPet() {
-  if (petSyncing) setPetMood('thinking', HAGEMI_PET.syncing);
-  else if (isPet() && document.activeElement?.id === 'global-search-input') setPetMood('searching', HAGEMI_PET.search);
-  else setPetMood('idle');
+function restPet(searchFocused = document.activeElement?.id === 'global-search-input') {
+  const pet = activePet();
+  if (pet && searchFocused) setPetMood('searching', pet.search);
+  else if (pet && petSyncing) setPetMood('thinking', pet.syncing);
+  else setPetMood('idle', pet ? pickLine(pet.idle) : '');
+}
+function resetPetMood() {
+  clearTimeout(petTimer);
+  petMood = 'idle';
+  petSpeech = '';
 }
 function speak(line) { speech = line || ''; const bubble = document.querySelector('#mascot-speech'); if (bubble) bubble.textContent = speech; }
 function chooseTheme(id) {
   state = saveState({ ...state, theme: id, customWallpaper: '' });
-  if (isPet()) setPetMood('idle', HAGEMI_PET.theme[id]);
+  const pet = activePet();
+  if (pet) setPetMood('idle', pet.id === 'gemini' ? HAGEMI_PET.theme[id] : pickLine(pet.idle));
   else speech = THEME_SWITCH_LINES[id]?.[mascotId()] || '';
   render();
 }
@@ -76,9 +85,14 @@ function picture(webp, fallback, width, height, alt = '', pictureAttrs = {}, ima
   image.src = fallback;
   return node;
 }
-function petPicture(pose) {
-  const { webp, png } = HAGEMI_PET.poses[pose];
-  return picture(webp, png, 555, 640, '哈基米立绘', { className: 'pet-artwork' });
+function petPortrait(pet, pose) {
+  if (pet.id === 'gemini') {
+    return picture(pet.poses[pose], HAGEMI_PET.poses[pose].png, 555, 640);
+  }
+  return el('img', { src: pet.poses[pose], alt: '', decoding: 'async' });
+}
+function petThumbnail(pet, size) {
+  return el('img', { src: pet.poses.idle, width: size, height: size, alt: '', loading: 'lazy', decoding: 'async' });
 }
 function syncBackdrop() {
   const visual = THEME_VISUALS[state.theme];
@@ -253,8 +267,9 @@ async function sync(event) {
   clearTimeout(initialSync);
   syncing = true;
   petSyncing = Boolean(event);
-  if (isPet()) {
-    if (petSyncing) setPetMood('thinking', HAGEMI_PET.syncing);
+  const pet = activePet();
+  if (pet) {
+    if (petSyncing) setPetMood('thinking', pet.syncing);
   } else speak(AI_RADAR_SYNC_LINES.syncing[mascotId()]);
   renderAiRadarSection();
   try {
@@ -266,9 +281,10 @@ async function sync(event) {
     syncing = false;
     const showPetResult = petSyncing;
     petSyncing = false;
-    if (isPet()) {
+    const currentPet = activePet();
+    if (currentPet) {
       const mode = radar.syncMode === 'partial-live' ? 'partialLive' : radar.syncMode;
-      if (showPetResult) setPetMood('happy', HAGEMI_PET[mode] || HAGEMI_PET.snapshot, 2000);
+      if (showPetResult) setPetMood('happy', currentPet[mode] || currentPet.snapshot, 2000);
     } else speak(AI_RADAR_SYNC_LINES[radar.syncMode]?.[mascotId()]);
     renderAiRadarSection();
   }
@@ -286,8 +302,20 @@ function chips(items, selected, onSelect) {
 }
 function radarCard(item) {
   const statusSource = item.id === 'openai' ? 'openaiStatus' : item.id === 'anthropic' ? 'claudeStatus' : null;
+  const pet = crossPets.find((character) => character.radarVendorId && character.radarVendorId === item.id);
   return el('article', { className: 'radar-card' }, [
-    el('div', { className: 'section-head' }, [el('h3', { textContent: item.name }), el('span', { className: 'status', textContent: item.status?.description || '状态未知' })]),
+    el('div', { className: pet ? 'section-head radar-card-heading' : 'section-head' }, [
+      el('h3', { textContent: item.name }),
+      el('span', { className: 'status', textContent: item.status?.description || '状态未知' }),
+      pet ? el('button', {
+        type: 'button', className: 'radar-pet-btn', 'data-pick': pet.id,
+        'aria-label': summonLabel(pet), title: summonLabel(pet),
+        onClick: () => {
+          summonPet(pet.id);
+          toast(`${pet.name} 已来陪伴`);
+        },
+      }, [petThumbnail(pet, 32)]) : null,
+    ]),
     el('small', { textContent: item.family }),
     el('div', { className: 'source-tags' }, [
       el('span', { className: 'source-badge', textContent: `目录 · ${item.catalogFresh && freshness('openrouter') === '实时' ? '实时' : `沿用${fallbackKind}`}` }),
@@ -324,10 +352,18 @@ function renderAiRadarSection() {
   } else if (focusedButton?.dataset.value) {
     [...body.querySelectorAll('.chips button')].find((item) => item.dataset.value === focusedButton.dataset.value)
       ?.focus({ preventScroll: true });
+  } else if (focusedButton?.classList.contains('radar-pet-btn')) {
+    [...body.querySelectorAll('.radar-pet-btn')].find((item) => item.dataset.pick === focusedButton.dataset.pick)
+      ?.focus({ preventScroll: true });
   }
 }
 function setMascotHidden(hidden) {
   state = saveState({ ...state, mascotHidden: hidden });
+  if (hidden) closePetSwitcher();
+  syncMascotVisibility();
+}
+function syncMascotVisibility() {
+  const { mascotHidden: hidden } = state;
   shell.querySelector('#mascot-panel').hidden = hidden;
   shell.querySelector('.recall').hidden = !hidden;
   const command = shell.querySelector('#toggle-mascot');
@@ -335,14 +371,13 @@ function setMascotHidden(hidden) {
   for (const pick of shell.querySelectorAll('.mascot-pick')) {
     const current = isCurrentMascot(pick.dataset.pick);
     pick.textContent = mascotPickLabel(current, pick.dataset.pick);
-    pick.setAttribute('aria-disabled', String(current));
+    pick.disabled = current;
     pick.setAttribute('aria-pressed', String(current));
   }
 }
 function topbarTools(file) {
   topbarTools.cleanup?.();
   topbarTools.cleanup = null;
-  const supportsPopover = Object.hasOwn(HTMLElement.prototype, 'popover');
   const trigger = el('button', {
     id: 'topbar-tools-trigger', type: 'button', className: 'tools-trigger',
     popovertarget: 'topbar-tools-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
@@ -443,6 +478,8 @@ function topbarTools(file) {
           button('取消', () => d.close(), { autofocus: true }),
           button('恢复默认', () => {
             state = saveState(createDefaultState());
+            speech = '';
+            resetPetMood();
             category = '全部';
             query = '';
             d.close();
@@ -493,44 +530,168 @@ function topbarTools(file) {
   return [trigger, menu];
 }
 
-function selectMascot(id, fromProfile = false) {
+function summonLabel(character) {
+  return `召唤 ${character.name.replace(' · ', ' ')}`;
+}
+
+function summonPet(id) {
+  const pet = resolveCrossPet(id);
   state = saveState({ ...state, mascotId: id, mascotHidden: false });
-  speech = fromProfile && !isPet() ? MASCOTS[id].catchphrase : '';
-  restPet();
-  render();
-  const control = fromProfile ? `.mascot-pick[data-pick="${id}"]` : `.mascot-controls [data-pick="${id}"]`;
-  shell.querySelector(control)?.focus({ preventScroll: true });
+  resetPetMood();
+  if (pet) {
+    petMood = 'happy';
+    petSpeech = pet.greeting;
+  }
+  speech = pet ? '' : MASCOTS[id].catchphrase;
+  closePetSwitcher();
+  const previous = shell.querySelector('#mascot-panel');
+  const outgoing = previous.hidden ? null : previous.querySelector('.mascot-art').firstElementChild;
+  const next = mascotPanel();
+  previous.replaceWith(next);
+  syncMascotVisibility();
+  const portrait = next.querySelector('.mascot-art');
+  const incoming = portrait.firstElementChild;
+  if (incoming.animate && !state.motionPaused && matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+    incoming.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'ease' });
+    if (outgoing) {
+      outgoing.classList.add('pet-outgoing');
+      outgoing.style.setProperty('--pet-glow', previous.style.getPropertyValue('--pet-glow'));
+      portrait.append(outgoing);
+      const fade = outgoing.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease' });
+      fade.finished.finally(() => outgoing.remove()).catch(() => {});
+    }
+  }
+  if (pet) petTimer = setTimeout(restPet, 1600);
+}
+
+function setPetSwitcherOpen(menu, open) {
+  if (!supportsPopover) {
+    menu.classList.toggle('is-open', open);
+    menu.inert = !open;
+  }
+  menu.previousElementSibling.setAttribute('aria-expanded', String(open));
+}
+
+function closePetSwitcher(restoreFocus = false) {
+  const menu = shell.querySelector('#pet-switcher-menu');
+  if (!menu) return;
+  const trigger = menu.previousElementSibling;
+  if (supportsPopover) {
+    if (menu.matches(':popover-open')) menu.hidePopover();
+  } else setPetSwitcherOpen(menu, false);
+  if (restoreFocus) trigger.focus({ preventScroll: true });
+}
+
+function mascotControl(id, label, icon, action) {
+  return el('button', { id, type: 'button', 'aria-label': label, title: label, onClick: action }, [
+    el('span', { 'aria-hidden': 'true', textContent: icon }),
+    el('span', { className: 'pet-control-label', textContent: label }),
+  ]);
+}
+
+function petSwitcher(pet, mascot) {
+  const current = pet ?? mascot;
+  const trigger = el('button', {
+    id: 'pet-switcher-trigger', type: 'button', popovertarget: 'pet-switcher-menu',
+    'aria-haspopup': 'menu', 'aria-controls': 'pet-switcher-menu', 'aria-expanded': 'false',
+    'aria-label': `选桌宠，当前为 ${current.name}`, title: '选桌宠',
+  }, [
+    pet ? petThumbnail(pet, 24) : el('img', { src: mascot.avatarWebp, width: 24, height: 24, alt: '' }),
+    el('span', { className: 'pet-control-label pet-trigger-name', textContent: pet?.shortName ?? mascot.name }),
+    el('span', { className: 'pet-control-label', 'aria-hidden': 'true', textContent: '▾' }),
+  ]);
+  const option = (character, crossPet) => el('button', {
+    type: 'button', role: 'menuitemradio', tabindex: -1, 'data-pick': character.id,
+    'aria-checked': String(character.id === current.id), 'aria-label': summonLabel(character),
+    title: character.name, autofocus: character.id === current.id,
+    onClick: () => {
+      summonPet(character.id);
+      shell.querySelector('#pet-switcher-trigger').focus({ preventScroll: true });
+    },
+  }, crossPet ? [petThumbnail(character, 36), el('span', { className: 'pet-opt-label', textContent: character.shortName })] : [character.name]);
+  const group = el('div', { role: 'menu', 'aria-label': '选桌宠', focusgroup: 'menu nomemory' }, [
+    el('div', { className: 'pet-switcher-grid', role: 'presentation' }, crossPets.map((character) => option(character, true))),
+    el('div', { className: 'pet-switcher-legacy', role: 'presentation' }, Object.values(MASCOTS).map((character) => option(character, false))),
+  ]);
+  const items = [...group.querySelectorAll('button')];
+  const selected = group.querySelector('[aria-checked=true]');
+  const menu = el('div', {
+    id: 'pet-switcher-menu', popover: 'auto', 'data-fallback': !supportsPopover, inert: !supportsPopover,
+    onFocusOut: (event) => {
+      if (event.relatedTarget && event.relatedTarget !== trigger && !menu.contains(event.relatedTarget)) closePetSwitcher();
+    },
+    onKeyDown: (event) => {
+      const i = items.indexOf(event.target);
+      if (i < 0) return;
+      const next = {
+        ArrowLeft: (i - 1 + items.length) % items.length,
+        ArrowRight: (i + 1) % items.length,
+        ArrowUp: i < 3 ? crossPets.length + Math.min(i, 1) : i - 3,
+        ArrowDown: i >= crossPets.length ? i - crossPets.length : Math.min(i + 3, items.length - 1),
+        Home: 0,
+        End: items.length - 1,
+      }[event.key];
+      if (!Number.isInteger(next)) return;
+      event.preventDefault();
+      items[next].focus();
+    },
+  }, [group]);
+  if (supportsPopover) {
+    menu.addEventListener('beforetoggle', (event) => setPetSwitcherOpen(menu, event.newState === 'open'));
+  } else {
+    trigger.addEventListener('click', () => {
+      const open = !menu.classList.contains('is-open');
+      setPetSwitcherOpen(menu, open);
+      if (open) selected.focus();
+    });
+  }
+  trigger.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    if (supportsPopover) menu.showPopover();
+    else setPetSwitcherOpen(menu, true);
+    const item = event.key === 'ArrowUp' ? items.at(-1) : selected;
+    item.focus();
+  });
+  return [trigger, menu];
 }
 
 function mascotPanel() {
-  const pet = isPet();
+  const pet = activePet();
   const mascot = MASCOTS[mascotId()];
-  const name = pet ? '哈基米 Hagemi · ' + HAGEMI_PET.title : mascot.name + ' · ' + (mascot.id === 'sena' ? '星穹姬' : '昼樱姬');
+  const name = pet ? pet.name + ' · ' + pet.title : mascot.name + ' · ' + (mascot.id === 'sena' ? '星穹姬' : '昼樱姬');
   const portrait = el('button', {
     type: 'button', className: pet && petMood === 'idle' ? 'mascot-art is-idle' : 'mascot-art',
-    'aria-label': pet ? '戳一戳哈基米' : '点击看板娘互动',
+    'aria-label': `戳一戳${(pet ?? mascot).name}`,
     onClick: () => {
-      if (pet) {
-        petPokes += 1;
-        setPetMood(petPokes % 3 === 0 ? 'happy' : 'surprised', pickLine(HAGEMI_PET.poke), 1200);
-      } else speak(pickLine(mascot.greetings.poke));
+      if (pet) setPetMood('surprised', pickLine(pet.poke), 1200);
+      else speak(pickLine(mascot.greetings.poke));
     },
-  }, [pet ? petPicture(petMood) : picture(mascot.avatarWebp, mascot.avatarJpg, 104, 138, mascot.name + '立绘')]);
+  }, [pet ? petPortrait(pet, petMood) : picture(mascot.avatarWebp, mascot.avatarJpg, 240, 320, '', { className: 'legacy-portrait' })]);
   const bubble = el('p', {
     id: 'mascot-speech', className: 'speech', 'aria-live': 'polite',
-    textContent: pet ? petSpeech || petGreeting() : speech || pickGreeting(mascot.id, new Date().getHours()),
+    textContent: pet ? petSpeech || pet.greeting : speech || pickGreeting(mascot.id, new Date().getHours()),
   });
-  return el('aside', { id: 'mascot-panel', className: pet ? 'mascot-stage is-pet' : 'mascot-stage', hidden: state.mascotHidden }, [
+  return el('aside', {
+    id: 'mascot-panel', className: pet ? 'mascot-stage is-pet' : 'mascot-stage', hidden: state.mascotHidden,
+    style: `--pet-glow:${(pet ?? mascot).accent}`,
+  }, [
     portrait,
     el('div', { className: 'mascot-dialogue' }, [
       el('span', { className: 'mascot-name', textContent: name }),
-      pet ? el('div', { className: 'pet-bubble' }, [bubble]) : bubble,
+      el('div', { className: 'pet-bubble' }, [bubble]),
       el('div', { className: 'mascot-controls' }, [
-        pet ? button('摸摸头', () => setPetMood('pat', pickLine(HAGEMI_PET.pat), 2000)) : null,
-        ...[['auto', '哈基米'], ['sena', '星奈'], ['sakura', '樱雪']].map(([id, label]) => button(label, () => selectMascot(id), {
-          'data-pick': id, className: state.mascotId === id ? 'active' : '', 'aria-pressed': String(state.mascotId === id),
-        })),
-        button('暂别', () => {
+        mascotControl('pet-pat', '摸摸头', '✋', () => {
+          if (pet) setPetMood('pat', pickLine(pet.pat), 2000);
+          else speak(pickLine(mascot.greetings.poke));
+        }),
+        mascotControl('pet-next', '换一只', '🎲', () => {
+          const index = crossPets.indexOf(pet);
+          summonPet(crossPets[(index + 1) % crossPets.length].id);
+          shell.querySelector('#pet-next').focus({ preventScroll: true });
+        }),
+        ...petSwitcher(pet, mascot),
+        mascotControl('pet-hide', '暂别', '✕', () => {
           setMascotHidden(true);
           shell.querySelector('.recall').focus({ preventScroll: true });
         }),
@@ -541,9 +702,49 @@ function mascotPanel() {
 
 function mascotProfileButton(id) {
   const current = isCurrentMascot(id);
-  return button(mascotPickLabel(current, id), () => {
-    if (!isCurrentMascot(id)) selectMascot(id, true);
-  }, { className: 'mascot-pick', 'data-pick': id, 'aria-disabled': String(current), 'aria-pressed': String(current) });
+  return button(mascotPickLabel(current, id), (event) => {
+    const card = event.currentTarget.closest('figure');
+    summonPet(id);
+    card.focus({ preventScroll: true });
+  }, { className: 'mascot-pick', 'data-pick': id, disabled: current, 'aria-pressed': String(current) });
+}
+
+function mascotGallery() {
+  return el('section', { className: 'mascot-gallery-section', 'aria-labelledby': 'mascot-gallery-title' }, [
+    el('h2', { id: 'mascot-gallery-title', textContent: '全员桌宠 · 萌娘图鉴' }),
+    el('div', { className: 'mascot-gallery' }, [
+      ...crossPets.map((pet) => el('figure', {
+        className: 'pet-profile', tabindex: -1, 'aria-labelledby': `pet-name-${pet.id}`,
+        style: `--pet-accent:${pet.accent}`,
+      }, [
+        petThumbnail(pet, 160),
+        el('figcaption', { className: 'mascot-info' }, [
+          el('div', { className: 'mascot-title-row' }, [
+            el('strong', { id: `pet-name-${pet.id}`, textContent: pet.name }),
+            el('small', { textContent: pet.title }),
+          ]),
+          el('p', { className: 'mascot-line', textContent: pet.greeting }),
+          mascotProfileButton(pet.id),
+        ]),
+      ])),
+      el('div', { className: 'mascot-duo' }, Object.values(MASCOTS).map((character) =>
+        el('figure', { className: 'mascot-card', tabindex: -1, 'aria-labelledby': `pet-name-${character.id}` }, [
+          el('div', { className: 'mascot-frame' }, [
+            picture(character.avatarWebp, character.avatarJpg, 240, 320, '', {}, { loading: 'lazy' }),
+          ]),
+          el('figcaption', { className: 'mascot-info' }, [
+            el('div', { className: 'mascot-title-row' }, [
+              el('strong', { id: `pet-name-${character.id}`, textContent: character.name }),
+              el('small', { textContent: character.title }),
+            ]),
+            el('p', { className: 'mascot-world', textContent: character.cvStyle }),
+            el('p', { className: 'mascot-line', textContent: character.catchphrase }),
+            mascotProfileButton(character.id),
+          ]),
+        ]),
+      )),
+    ]),
+  ]);
 }
 
 function openCgLightbox(index, trigger) {
@@ -586,14 +787,15 @@ function render() {
   syncBackdrop();
   const visual = THEME_VISUALS[state.theme];
   const engine = DEFAULT_SEARCH_ENGINES.find((item) => item.id === state.searchEngineId) || DEFAULT_SEARCH_ENGINES[0];
-  const searchPet = () => { if (isPet()) setPetMood('searching', HAGEMI_PET.search); };
+  const searchPet = () => {
+    const pet = activePet();
+    if (pet) setPetMood('searching', pet.search);
+  };
   const input = el('input', {
     id: 'global-search-input', 'aria-label': '搜索网站或输入关键词', placeholder: '搜索网站或输入关键词', value: query,
     onFocus: searchPet,
     onBlur: () => {
-      if (!isPet() || petMood !== 'searching') return;
-      if (petSyncing) setPetMood('thinking', HAGEMI_PET.syncing);
-      else setPetMood('idle');
+      if (petMood === 'searching') restPet(false);
     },
     onInput: (event) => { query = event.target.value; searchPet(); results(); },
   });
@@ -629,6 +831,8 @@ function render() {
       event.target.value = '';
       if (!selected) return;
       state = saveState(importStateJson(state, await selected.text()));
+      speech = '';
+      resetPetMood();
       render();
       document.querySelector('#topbar-tools-trigger')?.focus({ preventScroll: true });
       toast('导入成功');
@@ -671,6 +875,7 @@ function render() {
       mascotPanel(),
     ])]),
     el('div', { className: 'editorial-content' }, [
+        mascotGallery(),
         el('section', { className: 'visual-gallery' }, [
           el('div', { className: 'gallery-heading' }, [
             el('h2', { className: 'section-title', textContent: '世界线 · CG 原画廊' }),
@@ -700,39 +905,6 @@ function render() {
             ]),
           ]))]),
         ]),
-        el('section', {}, [
-          el('h2', { textContent: '桌宠与看板档案' }),
-          el('div', { className: 'mascot-gallery' }, [
-            el('figure', { className: 'pet-profile' }, [
-              petPicture('idle'),
-              el('figcaption', { className: 'mascot-info' }, [
-                el('div', { className: 'mascot-title-row' }, [
-                  el('strong', { textContent: '哈基米 Hagemi' }),
-                  el('small', { textContent: HAGEMI_PET.title }),
-                ]),
-                mascotProfileButton('auto'),
-                el('small', { className: 'pet-credit', textContent: HAGEMI_PET.credit }),
-              ]),
-            ]),
-            ...[MASCOTS.sena, MASCOTS.sakura].map((character, index) =>
-              el('figure', { className: 'mascot-card' }, [
-                el('div', { className: 'mascot-frame' }, [
-                  picture(character.avatarWebp, character.avatarJpg, 240, 320, character.name + '立绘'),
-                ]),
-                el('figcaption', { className: 'mascot-info' }, [
-                  el('div', { className: 'mascot-title-row' }, [
-                    el('strong', { textContent: character.name }),
-                    el('span', { className: 'mascot-badge', textContent: `No.0${index + 1}` }),
-                    el('small', { textContent: character.title }),
-                  ]),
-                  el('p', { className: 'mascot-world', textContent: character.cvStyle }),
-                  el('p', { className: 'mascot-line', textContent: character.catchphrase }),
-                  mascotProfileButton(character.id),
-                ]),
-              ]),
-            ),
-          ]),
-        ]),
         el('section', {}, [el('h2', { textContent: '常用置顶' }), el('div', { className: 'grid' }, siteCards(state.sites.filter((site) => site.pinned)))]),
         el('section', { id: 'ai-radar-section', className: 'ai-radar-section' }, [
           picture(radarArt.bgWebp, radarArt.bgJpg, 1376, 768, '', { className: 'radar-backdrop', 'aria-hidden': 'true' }),
@@ -742,13 +914,17 @@ function render() {
           el('div', { className: 'section-head' }, [el('h2', { className: 'section-title', textContent: '探索网址库' }), el('span', { id: 'count' })]),
           chips(['全部', ...listCategories(state.sites)], category, (item) => {
             category = item;
-            if (isPet()) setPetMood('idle', HAGEMI_PET.category[item] ?? HAGEMI_PET.category['全部']);
+            const pet = activePet();
+            if (pet) setPetMood('idle', pet.id === 'gemini' ? HAGEMI_PET.category[item] ?? HAGEMI_PET.category['全部'] : pickLine(pet.idle));
             else speak(CATEGORY_LINES[item]?.[mascotId()]);
             render();
           }),
           el('div', { id: 'results', className: 'grid' }),
         ]),
-        el('footer', { textContent: '✦ 在热爱中，发现更多可能 · NavHub' }),
+        el('footer', {}, [
+          el('p', { textContent: '✦ 在热爱中，发现更多可能 · NavHub' }),
+          el('p', { className: 'pet-credit', textContent: 'CC BY-NC-SA 4.0 · 原作者 CrossPet / lokicorvus / ZipZipPipe / 上善无形 · 详见 NOTICE.md' }),
+        ]),
     ]),
   );
   results(); clock();
@@ -776,8 +952,19 @@ function clock() {
   const node = document.querySelector('#clock');
   if (node) node.textContent = new Date().toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' });
 }
+document.addEventListener('pointerdown', (event) => {
+  if (!supportsPopover && event.target instanceof Element && !event.target.closest('#pet-switcher-trigger, #pet-switcher-menu')) {
+    closePetSwitcher();
+  }
+});
 document.addEventListener('keydown', (event) => {
-  const menuOpen = document.querySelector('#topbar-tools-trigger')?.getAttribute('aria-expanded') === 'true';
+  const petMenuOpen = shell.querySelector('#pet-switcher-trigger[aria-expanded=true]');
+  if (event.key === 'Escape' && petMenuOpen && !supportsPopover) {
+    event.preventDefault();
+    closePetSwitcher(true);
+    return;
+  }
+  const menuOpen = petMenuOpen || shell.querySelector('#topbar-tools-trigger[aria-expanded=true]');
   if (event.key !== '/' || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || document.querySelector('dialog[open]') || menuOpen) return;
   if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
   event.preventDefault(); document.querySelector('#global-search-input')?.focus();

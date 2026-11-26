@@ -1,6 +1,6 @@
 {
   "snapshotSource": "build-live",
-  "generatedAt": "2026-11-26T14:02:11.933Z",
+  "generatedAt": "2026-11-26T15:56:13.289Z",
   "syncMode": "snapshot",
   "sourceResults": {
     "openrouter": true,
@@ -87,9 +87,9 @@
       ],
       "status": {
         "sourceName": "OpenAI Status",
-        "indicator": "minor",
-        "severity": "degraded",
-        "description": "Partial System Degradation",
+        "indicator": "none",
+        "severity": "operational",
+        "description": "All Systems Operational",
         "url": "https://status.openai.com/"
       }
     },
@@ -496,7 +496,7 @@
       "url": "https://www.moonshot.cn",
       "apiUrl": "https://platform.moonshot.cn/docs",
       "catalogFresh": true,
-      "modelCount": 8,
+      "modelCount": 7,
       "featuredModel": {
         "id": "moonshotai/kimi-k3.1-pro",
         "name": "MoonshotAI: Kimi K3.1 Pro",

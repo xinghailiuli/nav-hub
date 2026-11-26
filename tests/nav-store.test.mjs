@@ -16,6 +16,7 @@ import {
   loadState,
   normalizeUrl,
   resolveThemeId,
+  sanitizeVisualPreferences,
   sanitizeCustomWallpaperInput,
   sanitizeImportedSites,
   saveState,
@@ -25,8 +26,9 @@ import {
   updateSite,
   validateSiteDraft,
 } from "../src/store.js";
-import { CG_ARTWORKS, HAGEMI_PET, MASCOTS, SITE_ARTWORKS, THEME_VISUALS, pickGreeting, pickSiteArt, resolveMascotId } from "../src/data/acgDialogues.js";
+import { CG_ARTWORKS, CROSSPET_ROSTER, HAGEMI_PET, MASCOTS, SITE_ARTWORKS, THEME_VISUALS, pickGreeting, pickSiteArt, resolveCrossPet, resolveMascotId } from "../src/data/acgDialogues.js";
 import { DEFAULT_CATEGORIES, DEFAULT_SEARCH_ENGINES, DEFAULT_SITES } from "../src/data/defaultSites.js";
+import { AI_PROVIDER_SPECS } from "../src/aiRadar.js";
 
 function makeMemoryStorage() {
   const map = new Map();
@@ -43,6 +45,101 @@ const defaultVisualPreferences = {
   backdropMode: "balanced",
   customWallpaper: "",
 };
+
+const crossPetVendors = {
+  gemini: "google", claude: "anthropic", deepseek: "deepseek", gpt: "openai", qwen: "qwen",
+  kimi: "moonshot", glm: "zhipu", grok: "xai", doubao: null,
+};
+
+test("all nine CrossPet characters resolve to their radar vendors and 54 bundled poses", async () => {
+  const ids = Object.keys(crossPetVendors);
+  const poses = ["idle", "happy", "pat", "searching", "thinking", "surprised"];
+  assert.deepEqual(Object.keys(CROSSPET_ROSTER), ids);
+  assert.deepEqual(
+    Object.values(crossPetVendors).filter(Boolean).sort(),
+    AI_PROVIDER_SPECS.map(({ id }) => id).sort(),
+  );
+  assert.equal(resolveCrossPet("auto"), CROSSPET_ROSTER.gemini);
+  for (const id of ["sena", "sakura", "invalid", "constructor", null]) {
+    assert.equal(resolveCrossPet(id), null);
+  }
+  const publicDirectory = new URL("../public/", import.meta.url);
+  await Promise.all(ids.flatMap((id) => {
+    const pet = resolveCrossPet(id);
+    assert.equal(pet.id, id);
+    assert.equal(pet.radarVendorId, crossPetVendors[id]);
+    for (const field of ["name", "shortName", "title", "accent", "originCredit", "greeting", "search", "syncing", "live", "partialLive", "cache", "snapshot"]) {
+      assert.ok(typeof pet[field] === "string" && pet[field].trim(), `${id}.${field}`);
+    }
+    for (const field of ["idle", "pat", "poke"]) {
+      assert.ok(Array.isArray(pet[field]) && pet[field].length > 0, `${id}.${field}`);
+      assert.ok(pet[field].every((line) => typeof line === "string" && line.trim()), `${id}.${field}`);
+    }
+    assert.deepEqual(Object.keys(pet.poses), poses);
+    return poses.map(async (pose) => {
+      const stem = id === "gemini" ? "pet" : `pet-${id}`;
+      const path = `./art/${stem}-${pose}.webp`;
+      assert.equal(pet.poses[pose], path);
+      const file = await stat(new URL(path, publicDirectory));
+      assert.ok(file.isFile() && file.size > 0, path);
+    });
+  }));
+});
+
+test("CrossPet selections survive sanitization, storage, and backup roundtrips", () => {
+  const storage = makeMemoryStorage();
+  const defaults = createDefaultState();
+  assert.deepEqual(sanitizeVisualPreferences(), defaultVisualPreferences);
+  for (const [mascotId, expected] of [
+    ...["auto", "sena", "sakura"].map((id) => [id, id]),
+    ...Object.keys(crossPetVendors).map((id) => [id, id]),
+    ["invalid", "auto"],
+    ["constructor", "auto"],
+  ]) {
+    const state = { ...defaults, mascotId };
+    const backup = exportStateJson(state);
+    saveState(state, storage);
+    assert.equal(sanitizeVisualPreferences(state).mascotId, expected);
+    assert.equal(loadState(storage).mascotId, expected);
+    assert.equal(JSON.parse(backup).mascotId, expected);
+    assert.equal(importStateJson(defaults, backup).mascotId, expected);
+    assert.equal(importStateJson(defaults, JSON.stringify({ ...defaults, mascotId })).mascotId, expected);
+  }
+});
+
+test("all four themes meet AA contrast for mascot text and active profile buttons", async () => {
+  const css = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  const luminance = (hex) => {
+    let rgb = hex.slice(1);
+    if (rgb.length === 3) rgb = [...rgb].map((digit) => digit.repeat(2)).join("");
+    const linear = rgb.match(/../g).map((pair) => {
+      const channel = Number.parseInt(pair, 16) / 255;
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  };
+
+  for (const { id } of THEMES) {
+    const block = id === "starlight"
+      ? css.match(/:root\s*\{[^{}]*--bg:[^{}]*\}/)?.[0]
+      : css.match(new RegExp(`:root\\[data-theme=${id}\\]\\s*\\{[^{}]*\\}`))?.[0];
+    assert.ok(block, id);
+    const palette = Object.fromEntries([...block.matchAll(/--([\w-]+):\s*(#[\da-f]{3,6})\b/gi)]
+      .map(([, name, value]) => [name, value]));
+    for (const [foreground, background] of [
+      [palette.ink, palette.bg],
+      [palette["ink-2"], palette.bg],
+      [palette.ink, palette["card-solid"]],
+      [palette["ink-2"], palette["card-solid"]],
+      [palette["on-accent"] ?? palette.bg, palette.accent],
+    ]) {
+      assert.ok(foreground && background, id);
+      const [low, high] = [luminance(foreground), luminance(background)].sort((a, b) => a - b);
+      const ratio = (high + 0.05) / (low + 0.05);
+      assert.ok(ratio >= 4.5, `${id}: ${foreground} on ${background} is ${ratio.toFixed(2)}:1`);
+    }
+  }
+});
 
 test("ACG artwork uses relative WebP and JPG paths backed by public files", async () => {
   assert.deepEqual(Object.keys(THEME_VISUALS), THEMES.map(({ id }) => id));

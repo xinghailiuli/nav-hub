@@ -16,6 +16,9 @@ const DEFAULT_VISUAL_PREFERENCES = {
   backdropMode: "balanced",
   customWallpaper: "",
 };
+const VALID_MASCOT_IDS = new Set([
+  "auto", "sena", "sakura", "gemini", "claude", "deepseek", "gpt", "qwen", "kimi", "glm", "grok", "doubao",
+]);
 const LEGACY_SEARCH_TEMPLATES = new Map([
   ["baidu", "https://www.baidu.com/s?wd={q}"],
   ["zhihu", "https://www.zhihu.com/search?type=content&q={q}"],
@@ -104,7 +107,7 @@ export function resolveThemeId(value) {
   return knownThemeId(value) ?? THEMES[0].id;
 }
 
-function sanitizeVisualPreferences({ mascotId, mascotHidden, backdropMode, customWallpaper }) {
+export function sanitizeVisualPreferences({ mascotId, mascotHidden, backdropMode, customWallpaper } = {}) {
   let wallpaper = DEFAULT_VISUAL_PREFERENCES.customWallpaper;
   if (typeof customWallpaper === "string") {
     try {
@@ -114,7 +117,7 @@ function sanitizeVisualPreferences({ mascotId, mascotHidden, backdropMode, custo
     }
   }
   return {
-    mascotId: ["auto", "sena", "sakura"].includes(mascotId) ? mascotId : DEFAULT_VISUAL_PREFERENCES.mascotId,
+    mascotId: VALID_MASCOT_IDS.has(mascotId) ? mascotId : DEFAULT_VISUAL_PREFERENCES.mascotId,
     mascotHidden: mascotHidden === true,
     backdropMode: ["balanced", "vivid"].includes(backdropMode) ? backdropMode : DEFAULT_VISUAL_PREFERENCES.backdropMode,
     customWallpaper: wallpaper,

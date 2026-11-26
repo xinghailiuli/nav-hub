@@ -309,6 +309,140 @@ export const HAGEMI_PET = {
   },
 };
 
+const crossPetCredits = "CrossPet / lokicorvus";
+const zipZipPipeCredits = crossPetCredits + " / ZipZipPipe";
+
+function crossPet({ id, originCredit = zipZipPipeCredits, ...character }) {
+  const poses = Object.fromEntries(Object.entries(HAGEMI_PET.poses).map(([pose, { webp }]) => [
+    pose, id === "gemini" ? webp : `./art/pet-${id}-${pose}.webp`,
+  ]));
+  return {
+    id,
+    originCredit,
+    poses,
+    partialLive: "收到一部分实时信号，其余用本地记录补齐。",
+    cache: "这次先看上次同步留下的记录。",
+    snapshot: "这次先用随导航打包的模型资料。",
+    ...character,
+  };
+}
+
+export const CROSSPET_ROSTER = {
+  gemini: crossPet({
+    id: "gemini", name: "哈基米 · Gemini", shortName: "哈基米", title: "反重力星喵",
+    accent: "#7b5cd6", originCredit: crossPetCredits + " / hagemi-pet-agy", radarVendorId: "google",
+    greeting: "喵～Gemini 上线！",
+    idle: ["早午晚安喵！今天想逛哪颗星？", "尾巴甩来甩去，正在守护你的星海～"],
+    search: "搜一下喵！耳朵竖好帮你找找～",
+    syncing: "让我想想喵…两个答案都不错～",
+    live: "好耶喵！实时星讯全都收到！",
+    partialLive: HAGEMI_PET.partialLive, cache: HAGEMI_PET.cache, snapshot: HAGEMI_PET.snapshot,
+    pat: ["呼噜噜……再摸一下喵", "星星发卡都被摸暖啦！"],
+    poke: ["喵呜！？差点飘上天花板", "抓到了！回送你一个猫爪"],
+  }),
+  claude: crossPet({
+    id: "claude", name: "Claude · 小橘", shortName: "小橘", title: "铜橙书卷少女",
+    accent: "#e8a33d", originCredit: crossPetCredits, radarVendorId: "anthropic",
+    greeting: "我在这儿～今天也加油！",
+    idle: ["书签夹好啦，随时能接着读～"],
+    search: "上网查查，翻书中…",
+    syncing: "让我想想…嗯，这个角度很有意思",
+    live: "搞定啦～全量信号收好咯！",
+    partialLive: "新资料收到了，剩下的我去翻书签～",
+    pat: ["嘿嘿…再摸一下也行", "（蹭蹭）唔…好舒服"],
+    poke: ["诶？！吓我一跳", "怎么了怎么了？"],
+  }),
+  deepseek: crossPet({
+    id: "deepseek", name: "DeepSeek · 大肥鱼", shortName: "大肥鱼", title: "深海鲸鱼女仆",
+    accent: "#3b5bb5", originCredit: zipZipPipeCredits + " / 上善无形", radarVendorId: "deepseek",
+    greeting: "DeepSeek 来啦！咕噜咕噜～",
+    idle: ["咕噜～想跟我去深海逛一圈吗？"],
+    search: "出海找资料～顺便翻翻目录",
+    syncing: "深度思考中…让我潜下去想想",
+    live: "搞定啦！DeepSeek 完成任务！",
+    partialLive: "捞到一部分新资料啦，其余先翻潜航日志～",
+    pat: ["嘿嘿～（尾巴啪嗒啪嗒）", "再摸要给大鱼添碗白饭啦"],
+    poke: ["哇！不许叫我胖，只是骨架大！", "哼！戳什么戳～"],
+  }),
+  gpt: crossPet({
+    id: "gpt", name: "GPT · 御姐白龙", shortName: "御姐白龙", title: "星霄白龙御姐",
+    accent: "#7a8fa8", radarVendorId: "openai",
+    greeting: "……来了。今天想查什么？",
+    idle: ["云层散了。想看看星空吗？"],
+    search: "帮你查一查。",
+    syncing: "容我想想……有意思。",
+    live: "完成了，还不错吧？",
+    partialLive: "新信号收到了一些，其余沿用旧记录。",
+    pat: ["……别摸龙角。", "哼，就让你摸一下。"],
+    poke: ["嗯？！", "尾巴可不许乱碰。"],
+  }),
+  qwen: crossPet({
+    id: "qwen", name: "Qwen · 千问", shortName: "千问", title: "国风折扇千金",
+    accent: "#5b6bd6", radarVendorId: "qwen",
+    greeting: "千问来啦～需要什么，尽管说哦",
+    idle: ["扇子刚展开，要不要一起看看风景？"],
+    search: "我帮你找找看，马上就来～",
+    syncing: "让我想想哦……（折扇轻点下巴）",
+    live: "办好啦～太好了呢！",
+    partialLive: "找到一些新消息啦，其余先翻手账哦～",
+    pat: ["嘿嘿……（扇子挡脸）", "被夸奖了呢，再摸摸也可以哦"],
+    poke: ["呀！吓我一跳呢", "轻点嘛，妆会乱的～"],
+  }),
+  kimi: crossPet({
+    id: "kimi", name: "Kimi · 乐灵", shortName: "乐灵", title: "月下弦音女仆",
+    accent: "#3a4a9c", radarVendorId: "moonshot",
+    greeting: "月亮这边的 Kimi 来啦～今天想听什么曲子？",
+    idle: ["琴弦调好啦，等月亮升起来就开场～"],
+    search: "翻一翻乐谱，坐标就在这里哦～",
+    syncing: "让我想想……旋律与数据都快接上啦",
+    live: "好耶！演完啦～成功成功！",
+    partialLive: "新谱到了一部分，剩下的接着用旧谱哦～",
+    pat: ["嘿嘿……头发要乱掉啦～", "被夸了！今天多拉一首给你听"],
+    poke: ["呀！吓、吓了我一跳！", "琴弓差点歪掉啦～"],
+  }),
+  glm: crossPet({
+    id: "glm", name: "GLM · 黑狐", shortName: "黑狐", title: "算力精明狐仆",
+    accent: "#4b5a8a", radarVendorId: "zhipu",
+    greeting: "GLM 来啦～今天也请多多关照（笑）",
+    idle: ["今天的算力账本也整整齐齐～"],
+    search: "嗅到线索啦，这就替你翻一遍～",
+    syncing: "让我掐指算一算……嗯，很值",
+    live: "搞定～（眨眼）物超所值吧？",
+    partialLive: "新信号先记到账上，其余按上次账本算～",
+    pat: ["……再摸要按 Token 收费了哦", "（狐狸尾巴诚实地摇了起来）"],
+    poke: ["呜哇！", "铃铛都要被你晃响啦～"],
+  }),
+  grok: crossPet({
+    id: "grok", name: "Grok · 魔王", shortName: "魔王", title: "哥特战斧小恶魔",
+    accent: "#c19a3a", radarVendorId: "xai",
+    greeting: "Grok 来了。有话直说，少绕弯子",
+    idle: ["王冠戴稳了。今天有什么热闹？"],
+    search: "全网翻个底朝天，热搜我门儿清",
+    syncing: "想好了，结论你可能不爱听但很准",
+    live: "搞定，就说我能打吧？",
+    partialLive: "新消息只来了一半。剩下的我有存档。",
+    pat: ["摸王冠要收费的！", "哼……就一下。再一下也行"],
+    poke: ["哈？找打吗？", "小斧头可是开过刃的！"],
+  }),
+  doubao: crossPet({
+    id: "doubao", name: "豆包 · 元气包", shortName: "豆包", title: "怀抱头套助手",
+    accent: "#6a5ad8", radarVendorId: null,
+    greeting: "嗨～我是豆包！今天想聊点啥？",
+    idle: ["怀里的豆包也在等你来聊两句～"],
+    search: "搜搜搜……正在帮你翻遍好站～",
+    syncing: "嗯……等一下下，马上就有思路啦",
+    live: "好耶！搞定啦～今天超有精神！",
+    partialLive: "有新消息啦！剩下的先看我之前记的哦～",
+    pat: ["嘿嘿……头发都被揉乱啦，好开心！", "收到满格元气啦～"],
+    poke: ["哇！吓、吓我一大跳！", "怀里的豆包差点滚出去啦！"],
+  }),
+};
+
+export function resolveCrossPet(pref) {
+  if (pref === "auto") return CROSSPET_ROSTER.gemini;
+  return typeof pref === "string" && Object.hasOwn(CROSSPET_ROSTER, pref) ? CROSSPET_ROSTER[pref] : null;
+}
+
 export function resolveMascotId(mascotPref, themeId) {
   if (mascotPref === "sena" || mascotPref === "sakura") return mascotPref;
   return THEME_VISUALS[themeId]?.defaultMascotId || "sena";
