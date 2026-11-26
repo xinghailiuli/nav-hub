@@ -1,6 +1,6 @@
 {
   "snapshotSource": "build-live",
-  "generatedAt": "2026-11-25T21:09:47.122Z",
+  "generatedAt": "2026-11-26T07:48:57.995Z",
   "syncMode": "snapshot",
   "sourceResults": {
     "openrouter": true,
@@ -270,8 +270,8 @@
         "contextWindow": 1048576,
         "created": 1792225624,
         "pricing": {
-          "prompt": "0.00000015",
-          "completion": "0.0000006"
+          "prompt": "0.0000003",
+          "completion": "0.0000012"
         }
       },
       "recentModels": [
@@ -282,8 +282,8 @@
           "contextWindow": 1048576,
           "created": 1792225624,
           "pricing": {
-            "prompt": "0.00000015",
-            "completion": "0.0000006"
+            "prompt": "0.0000003",
+            "completion": "0.0000012"
           }
         },
         {
@@ -304,8 +304,8 @@
           "contextWindow": 1048576,
           "created": 1789021285,
           "pricing": {
-            "prompt": "0.0000000507",
-            "completion": "0.0000002028"
+            "prompt": "0.00000014",
+            "completion": "0.00000042"
           }
         },
         {
@@ -627,8 +627,8 @@
           "contextWindow": 1048576,
           "created": 1787752741,
           "pricing": {
-            "prompt": "0.00000012",
-            "completion": "0.00000038"
+            "prompt": "0.00000015",
+            "completion": "0.0000005"
           }
         },
         {

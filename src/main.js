@@ -1,16 +1,18 @@
-import './styles.css';
+import styles from './styles.css?inline';
 import { DEFAULT_SEARCH_ENGINES } from './data/defaultSites.js';
 import {
   THEMES, loadState, saveState, createDefaultState, addSite, updateSite,
   deleteSite, togglePin, listCategories, filterSites, buildSearchUrl,
-  exportStateJson, importStateJson, isSafeHttpUrl,
+  exportStateJson, importStateJson, isSafeHttpUrl, sanitizeCustomWallpaperInput,
 } from './store.js';
 import { loadAiRadarCache, fetchLiveAiRadar, formatContextWindow } from './aiRadar.js';
 import snapshot from './data/aiModelsSnapshot.json';
 import { THEME_VISUALS, MASCOTS, THEME_SWITCH_LINES, CATEGORY_LINES, AI_RADAR_SYNC_LINES, HITOKOTO_LIST, resolveMascotId, pickGreeting } from './data/acgDialogues.js';
-import { sanitizeCustomWallpaperInput } from './store.js';
 
 const root = document.querySelector('#app');
+const backdropStage = document.querySelector('#backdrop-stage');
+const backdropSource = document.querySelector('#backdrop-webp');
+const backdropImage = document.querySelector('#backdrop-img');
 let state = loadState();
 let category = '全部';
 let query = '';
@@ -23,12 +25,28 @@ const mascotId = () => resolveMascotId(state.mascotId, state.theme);
 function speak(line) { speech = line || ''; const bubble = document.querySelector('#mascot-speech'); if (bubble) bubble.textContent = speech; }
 function sayFrom(lines, key) { speak(lines[key]?.[mascotId()]); }
 function chooseTheme(id) { state = saveState({ ...state, theme: id, customWallpaper: '' }); speech = THEME_SWITCH_LINES[id]?.[mascotId()] || ''; render(); }
-function picture(webp, jpg, width, height, attrs = {}) { return el('picture', {}, [el('source', { type: 'image/webp', srcset: webp }), el('img', { src: jpg, width, height, decoding: 'async', ...attrs })]); }
+function picture(webp, jpg, width, height, alt = '') {
+  const image = el('img', { width, height, alt, decoding: 'async' });
+  const node = el('picture', {}, [el('source', { type: 'image/webp', srcset: webp }), image]);
+  image.src = jpg;
+  return node;
+}
+function syncBackdrop() {
+  const visual = THEME_VISUALS[state.theme];
+  const wallpaper = isSafeHttpUrl(state.customWallpaper) ? state.customWallpaper : '';
+  const srcset = wallpaper ? '' : visual.bgWebp;
+  const src = wallpaper || visual.bgJpg;
+  if (backdropSource.getAttribute('srcset') !== srcset) backdropSource.srcset = srcset;
+  if (backdropImage.getAttribute('src') !== src) backdropImage.src = src;
+  if (backdropStage.dataset.backdropMode !== state.backdropMode) {
+    backdropStage.dataset.backdropMode = state.backdropMode;
+  }
+}
 function wallpaperDialog() {
  const d = el('dialog', { id: 'wallpaper-dialog', closedby: 'any', 'aria-labelledby': 'wallpaper-title' });
  const input = el('input', { type: 'url', value: state.customWallpaper, placeholder: 'https://example.com/wallpaper.jpg', 'aria-label': '自定义壁纸地址' });
  const error = el('p', { className: 'error', role: 'alert' });
- const modes = el('div', { className: 'chips' }, ['balanced', 'vivid'].map(mode => button(mode === 'balanced' ? '舒适磨砂' : '通透赏图', () => { state = saveState({ ...state, backdropMode: mode }); document.querySelector('.shell').dataset.backdropMode = mode; modes.querySelectorAll('button').forEach(b => { const active = b.dataset.mode === mode; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); }); }, { 'data-mode': mode, className: state.backdropMode === mode ? 'active' : '', 'aria-pressed': String(state.backdropMode === mode) })));
+ const modes = el('div', { className: 'chips' }, ['balanced', 'vivid'].map(mode => button(mode === 'balanced' ? '舒适磨砂' : '通透赏图', () => { state = saveState({ ...state, backdropMode: mode }); syncBackdrop(); modes.querySelectorAll('button').forEach(b => { const active = b.dataset.mode === mode; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); }); }, { 'data-mode': mode, className: state.backdropMode === mode ? 'active' : '', 'aria-pressed': String(state.backdropMode === mode) })));
  d.append(el('form', { onSubmit: e => { e.preventDefault(); try { state = saveState({ ...state, customWallpaper: sanitizeCustomWallpaperInput(input.value) }); d.close(); render(); toast('壁纸设置已保存'); } catch (err) { error.textContent = err.message; } } }, [el('h2', { id: 'wallpaper-title', textContent: '壁纸与画质' }), el('p', { textContent: '选择背景通透度，或输入自定义壁纸地址。' }), modes, el('label', {}, ['自定义壁纸地址', input]), error, el('div', { className: 'actions' }, [button('清空并恢复主题壁纸', () => { input.value = ''; }), button('取消', () => d.close()), el('button', { type: 'submit', textContent: '保存' })])]));
  showDialog(d);
 }
@@ -150,15 +168,20 @@ function showDialog(d) {
 }
 async function sync() {
   if (syncing) return;
+  clearTimeout(initialSync);
   syncing = true;
   sayFrom(AI_RADAR_SYNC_LINES, 'syncing');
-  render();
+  renderAiRadarSection();
   try {
     fallbackKind = loadAiRadarCache() ? '缓存' : '快照';
     radar = await fetchLiveAiRadar({ fallbackSnapshot: snapshot });
   } catch (error) {
     toast(`同步失败：${error.message}`);
-  } finally { syncing = false; sayFrom(AI_RADAR_SYNC_LINES, radar.syncMode); render(); }
+  } finally {
+    syncing = false;
+    sayFrom(AI_RADAR_SYNC_LINES, radar.syncMode);
+    renderAiRadarSection();
+  }
 }
 function freshness(key) {
   return (radar.syncMode === 'live' || radar.syncMode === 'partial-live') && radar.sourceResults?.[key] === true
@@ -168,6 +191,7 @@ function chips(items, selected, onSelect) {
   return el('div', { className: 'chips' }, items.map((item) => button(item.name || item, () => onSelect(item), {
     className: (item.id || item) === selected ? 'active' : '',
     'aria-pressed': String((item.id || item) === selected),
+    'data-value': item.id || item,
   })));
 }
 function crest() {
@@ -195,10 +219,38 @@ function radarCard(item) {
     el('div', { className: 'actions' }, [link('官网 ↗', item.url), link('API ↗', item.apiUrl)]),
   ]);
 }
+function aiRadarContent() {
+  const modes = { live: '🟢 实时同步', 'partial-live': '🟡 部分实时', cache: '💾 离线缓存', snapshot: '📦 构建快照' };
+  const sources = [['openrouter', 'OpenRouter目录'], ['openaiStatus', 'OpenAI状态'], ['claudeStatus', 'Claude状态'], ['ollama', 'Ollama版本']];
+  return [
+    el('div', { className: 'section-head ai-radar-header' }, [
+      el('div', {}, [el('p', { className: 'eyebrow', textContent: 'MODEL INTELLIGENCE' }), el('h2', { textContent: '📡 AI 模型雷达 · 实时信息同步' }),
+        el('div', { className: 'source-tags', 'aria-label': '数据来源新鲜度' }, sources.map(([key, label]) => el('span', { className: `source-badge ${freshness(key) === '实时' ? 'is-live' : ''}`, textContent: `${label} · ${freshness(key)}` }))),
+      ]),
+      el('div', { className: 'toolbar' }, [el('span', { className: 'badge', role: 'status', textContent: modes[radar.syncMode] || modes.snapshot }), radar.ollama ? link(`🦙 Ollama ${radar.ollama.version}`, radar.ollama.url) : null, button(syncing ? '同步中…' : '立即同步', sync, { id: 'btn-sync-ai-models', 'aria-disabled': String(syncing) })]),
+    ]),
+    chips(['全部', ...radar.providers.map((item) => ({ id: item.id, name: item.name }))], provider, (item) => { provider = item.id || item; renderAiRadarSection(); }),
+    el('div', { className: 'grid radar-grid' }, radar.providers.filter((item) => provider === '全部' || item.id === provider).map(radarCard)),
+  ];
+}
+function renderAiRadarSection() {
+  const body = document.querySelector('#ai-radar-body');
+  if (!body) return;
+  const active = document.activeElement;
+  const focusedButton = body.contains(active) ? active.closest('button') : null;
+  body.replaceChildren(...aiRadarContent());
+  if (focusedButton?.id === 'btn-sync-ai-models') {
+    body.querySelector('#btn-sync-ai-models').focus({ preventScroll: true });
+  } else if (focusedButton?.dataset.value) {
+    [...body.querySelectorAll('.chips button')].find((item) => item.dataset.value === focusedButton.dataset.value)
+      ?.focus({ preventScroll: true });
+  }
+}
 function render() {
   const focused = document.activeElement?.id === 'global-search-input';
   const selection = focused ? document.activeElement.selectionStart : null;
   apply();
+  syncBackdrop();
   const visual = THEME_VISUALS[state.theme];
   const mascot = MASCOTS[mascotId()];
   const engine = DEFAULT_SEARCH_ENGINES.find((item) => item.id === state.searchEngineId) || DEFAULT_SEARCH_ENGINES[0];
@@ -210,10 +262,7 @@ function render() {
       render(); toast('导入成功');
     } catch (error) { toast(error.message); }
   } });
-  const modes = { live: '🟢 实时同步', 'partial-live': '🟡 部分实时', cache: '💾 离线缓存', snapshot: '📦 构建快照' };
-  const sources = [['openrouter', 'OpenRouter目录'], ['openaiStatus', 'OpenAI状态'], ['claudeStatus', 'Claude状态'], ['ollama', 'Ollama版本']];
-  const shell = el('main', { className: 'shell', 'data-backdrop-mode': state.backdropMode }, [
-    el('div', { id: 'backdrop-stage', className: 'backdrop-stage', 'aria-hidden': 'true' }, [state.customWallpaper && isSafeHttpUrl(state.customWallpaper) ? el('img', { className: 'backdrop-img', src: state.customWallpaper, width: 1376, height: 768, fetchpriority: 'high', decoding: 'async', alt: '' }) : picture(visual.bgWebp, visual.bgJpg, 1376, 768, { className: 'backdrop-img', fetchpriority: 'high', alt: '' }), el('div', { className: 'backdrop-scrim' })]),
+  const shell = el('main', { className: 'shell' }, [
     file,
     el('header', { className: 'topbar' }, [
       el('div', { className: 'brand' }, [el('span', { className: 'brand-icon', textContent: '✦' }), el('div', {}, [el('strong', { textContent: '极光导航 · NavHub' }), el('small', { textContent: '二次元 × Galgame × AI' })])]),
@@ -244,22 +293,33 @@ function render() {
       ]),
       el('small', { className: 'search-hint', textContent: '按 / 快速搜索 · 探索你的世界线' }),
       state.mascotHidden ? button('✦ 呼出看板娘', () => { state = saveState({ ...state, mascotHidden: false }); render(); }, { className: 'recall' }) : null,
-    ]), !state.mascotHidden ? el('aside', { id: 'mascot-panel', className: 'mascot-stage' }, [
-      el('button', { type: 'button', className: 'mascot-art', 'aria-label': '点击看板娘互动', onClick: () => { const lines = mascot.greetings.poke; speak(lines[Math.floor(Math.random() * lines.length)]); } }, [picture(mascot.avatarWebp, mascot.avatarJpg, 896, 1200, { alt: mascot.name + '立绘' })]),
-      el('div', { className: 'mascot-overlay' }, [el('span', { className: 'mascot-name', textContent: mascot.name + ' · ' + (mascot.id === 'sena' ? '星穹姬' : '昼樱姬') }), el('p', { id: 'mascot-speech', className: 'speech', 'aria-live': 'polite', textContent: speech || pickGreeting(mascot.id, new Date().getHours()) }), el('div', { className: 'mascot-controls' }, [['auto', '跟随主题'], ['sena', '星奈'], ['sakura', '樱雪']].map(([id, label]) => button(label, () => { state = saveState({ ...state, mascotId: id }); speech = ''; render(); }, { className: state.mascotId === id ? 'active' : '', 'aria-pressed': String(state.mascotId === id) })).concat(button('暂别', () => { state = saveState({ ...state, mascotHidden: true }); render(); })))])
-    ]) : null]),
-    el('section', { className: 'visual-gallery' }, [el('div', { className: 'gallery-heading' }, [el('div', {}, [el('p', { className: 'eyebrow', textContent: 'CHOOSE YOUR WORLDLINE' }), el('h2', { textContent: '✨ 精选世界线画廊' })]), el('span', { textContent: '点击即刻切换壁纸与主题' })]), el('div', { className: 'gallery-grid' }, THEMES.map(theme => el('button', { type: 'button', className: 'gallery-card' + (theme.id === state.theme ? ' active' : ''), 'aria-pressed': String(theme.id === state.theme), onClick: () => chooseTheme(theme.id) }, [picture(THEME_VISUALS[theme.id].bgWebp, THEME_VISUALS[theme.id].bgJpg, 1376, 768, { loading: 'lazy', alt: '' }), el('span', { className: 'gallery-caption' }, [el('strong', { textContent: theme.name }), el('small', { textContent: THEME_VISUALS[theme.id].sceneTitle }), theme.id === state.theme ? el('span', { className: 'gallery-current', textContent: '当前世界线' }) : null])])))]),
-    el('section', {}, [el('h2', { textContent: '✦ 常用置顶' }), el('div', { className: 'grid' }, state.sites.filter((site) => site.pinned).map(card))]),
-    el('section', { className: 'ai-radar-section' }, [
-      el('div', { className: 'section-head ai-radar-header' }, [
-        el('div', {}, [el('p', { className: 'eyebrow', textContent: 'MODEL INTELLIGENCE' }), el('h2', { textContent: '📡 AI 模型雷达 · 实时信息同步' }),
-          el('div', { className: 'source-tags', 'aria-label': '数据来源新鲜度' }, sources.map(([key, label]) => el('span', { className: `source-badge ${freshness(key) === '实时' ? 'is-live' : ''}`, textContent: `${label} · ${freshness(key)}` }))),
-        ]),
-        el('div', { className: 'toolbar' }, [el('span', { className: 'badge', textContent: modes[radar.syncMode] || modes.snapshot }), radar.ollama ? link(`🦙 Ollama ${radar.ollama.version}`, radar.ollama.url) : null, button(syncing ? '同步中…' : '立即同步', sync, { id: 'btn-sync-ai-models', disabled: syncing })]),
+    ]), el('div', { className: 'hero-scenic-window' }, [
+      el('div', { className: 'scene-plaque' }, [
+        el('span', { textContent: '✦ 当前世界线 · ' + visual.sceneTitle }),
+        button('壁纸与画质', wallpaperDialog),
       ]),
-      chips(['全部', ...radar.providers.map((item) => ({ id: item.id, name: item.name }))], provider, (item) => { provider = item.id || item; render(); }),
-      el('div', { className: 'grid radar-grid' }, radar.providers.filter((item) => provider === '全部' || item.id === provider).map(radarCard)),
-    ]),
+      state.mascotHidden ? null : el('aside', { id: 'mascot-panel', className: 'mascot-stage' }, [
+        el('button', { type: 'button', className: 'mascot-art', 'aria-label': '点击看板娘互动', onClick: () => {
+          const lines = mascot.greetings.poke;
+          speak(lines[Math.floor(Math.random() * lines.length)]);
+        } }, [picture(mascot.avatarWebp, mascot.avatarJpg, 104, 138, mascot.name + '立绘')]),
+        el('div', { className: 'mascot-dialogue' }, [
+          el('span', { className: 'mascot-name', textContent: mascot.name + ' · ' + (mascot.id === 'sena' ? '星穹姬' : '昼樱姬') }),
+          el('p', { id: 'mascot-speech', className: 'speech', 'aria-live': 'polite', textContent: speech || pickGreeting(mascot.id, new Date().getHours()) }),
+          el('div', { className: 'mascot-controls' }, [
+            ...[['auto', '跟随'], ['sena', '星奈'], ['sakura', '樱雪']].map(([id, label]) => button(label, () => {
+              state = saveState({ ...state, mascotId: id });
+              speech = '';
+              render();
+            }, { className: state.mascotId === id ? 'active' : '', 'aria-pressed': String(state.mascotId === id) })),
+            button('暂别', () => { state = saveState({ ...state, mascotHidden: true }); render(); }),
+          ]),
+        ]),
+      ]),
+    ])]),
+    el('section', { className: 'visual-gallery' }, [el('div', { className: 'gallery-heading' }, [el('div', {}, [el('p', { className: 'eyebrow', textContent: 'CHOOSE YOUR WORLDLINE' }), el('h2', { textContent: '✨ 精选世界线画廊' })]), el('span', { textContent: '点击即刻切换壁纸与主题' })]), el('div', { className: 'gallery-grid' }, THEMES.map(theme => el('button', { type: 'button', className: 'gallery-card' + (theme.id === state.theme ? ' active' : ''), 'aria-pressed': String(theme.id === state.theme), onClick: () => chooseTheme(theme.id) }, [picture(THEME_VISUALS[theme.id].bgWebp, THEME_VISUALS[theme.id].bgJpg, 1376, 768), el('span', { className: 'gallery-caption' }, [el('strong', { textContent: theme.name }), el('small', { textContent: THEME_VISUALS[theme.id].sceneTitle }), theme.id === state.theme ? el('span', { className: 'gallery-current', textContent: '当前世界线' }) : null])])))]),
+    el('section', {}, [el('h2', { textContent: '✦ 常用置顶' }), el('div', { className: 'grid' }, state.sites.filter((site) => site.pinned).map(card))]),
+    el('section', { id: 'ai-radar-section', className: 'ai-radar-section' }, [el('div', { id: 'ai-radar-body' }, aiRadarContent())]),
     el('section', {}, [el('div', { className: 'section-head' }, [el('h2', { textContent: '探索网址库' }), el('span', { id: 'count' })]), chips(['全部', ...listCategories(state.sites)], category, (item) => { category = item; sayFrom(CATEGORY_LINES, item); render(); }), el('div', { id: 'results', className: 'grid' })]),
     el('footer', { textContent: '✦ 在热爱中，发现更多可能 · NavHub' }),
   ]);
@@ -282,6 +342,7 @@ document.addEventListener('keydown', (event) => {
   if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
   event.preventDefault(); document.querySelector('#global-search-input')?.focus();
 });
+document.head.append(el('style', { textContent: styles }));
 render();
 setInterval(clock, 15000);
-sync();
+const initialSync = setTimeout(sync, 800);

@@ -43,16 +43,40 @@
     const preload = document.createElement("link");
     preload.rel = "preload";
     preload.as = "image";
+    preload.type = "image/webp";
     preload.setAttribute("fetchpriority", "high");
     preload.href = "./art/bg-" + theme + ".webp";
     document.head.append(preload);
   }
 })();
 </script>
+  <style>
+    body{margin:0;isolation:isolate}
+    .ambient-layer{position:fixed;inset:0;overflow:hidden;pointer-events:none;visibility:hidden}
+    .backdrop-stage{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+    .backdrop-stage picture,.backdrop-img{display:block;width:100%;height:100%}
+    .backdrop-img{object-fit:cover;object-position:76% 18%}
+  </style>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2310142f'/%3E%3Cpath d='M32 8l6 18 18 6-18 6-6 18-6-18-18-6 18-6z' fill='%23ac8cff'/%3E%3C/svg%3E">
   <title>极光导航 NavHub · 二次元、Galgame 与 AI 模型雷达</title>
 </head>
 <body>
+  <div id="backdrop-stage" class="backdrop-stage" aria-hidden="true">
+    <picture id="backdrop-picture"><source id="backdrop-webp" type="image/webp" srcset="./art/bg-starlight.webp"><img id="backdrop-img" class="backdrop-img" src="./art/bg-starlight.jpg" width="1376" height="768" fetchpriority="high" decoding="async" alt=""></picture><div class="backdrop-scrim"></div>
+  </div>
+  <script>
+(() => {
+  const read = key => { try { const value = JSON.parse(localStorage.getItem(key)); return Array.isArray(value?.sites) ? value : null; } catch { return null; } };
+  const state = read("navhub.state.v2") ?? read("navhub.state.v1");
+  const base = "./art/bg-" + document.documentElement.dataset.theme;
+  const raw = state?.customWallpaper;
+  let wallpaper = "";
+  if (typeof raw === "string" && /^https?:\/\/[^/\s?#\\]/i.test(raw) && !/^https?:\/\/[^/?#]*@/i.test(raw) && !/[\u0000-\u0020\u007f\\]/.test(raw)) {
+    try { const url = new URL(raw); if (url.hostname && !url.username && !url.password) wallpaper = url.href; } catch {}
+  }
+  if (wallpaper || base !== "./art/bg-starlight") { document.getElementById("backdrop-webp").srcset = wallpaper ? "" : base + ".webp"; document.getElementById("backdrop-img").src = wallpaper || base + ".jpg"; }
+})();
+  </script>
   <div class="ambient-layer" aria-hidden="true">
 
 <svg class="particle particle-1" viewBox="0 0 24 24" aria-hidden="true">
