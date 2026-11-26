@@ -178,6 +178,80 @@ export const HITOKOTO_LIST = [
   },
 ];
 
+// Relative luminance sampled from the bundled CGs for the daylight reading scrim.
+export const CG_ARTWORKS = [
+  {
+    id: "cg-galgame", title: "放学后的约定", subtitle: "夕光落进视觉小说的下一幕", tag: "Galgame CG",
+    bgWebp: "./art/cg-galgame.webp", bgJpg: "./art/cg-galgame.jpg", categoryHint: "Galgame 档案",
+    luminance: 0.3845,
+  },
+  {
+    id: "cg-pixiv", title: "流光画室", subtitle: "沿着色彩寻找下一笔灵感", tag: "二次元插画",
+    bgWebp: "./art/cg-pixiv.webp", bgJpg: "./art/cg-pixiv.jpg", categoryHint: "二次元插画与社区",
+    luminance: 0.2755,
+  },
+  {
+    id: "cg-nightcafe", title: "深夜咖啡馆", subtitle: "留一盏灯给夜归的旅人", tag: "夜间场景",
+    bgWebp: "./art/cg-nightcafe.webp", bgJpg: "./art/cg-nightcafe.jpg", categoryHint: "动漫追番",
+    luminance: 0.1304,
+  },
+  {
+    id: "cg-radar", title: "星海观测桥", subtitle: "追踪实时模型与远方的信号", tag: "雷达场景",
+    bgWebp: "./art/cg-radar.webp", bgJpg: "./art/cg-radar.jpg", categoryHint: "AI 大模型入口",
+    luminance: 0.0815,
+  },
+];
+
+const cardPositions = ["82% 20%", "72% 50%", "88% 80%"];
+
+export function pickSiteArt(category, index = 0) {
+  const artwork = CG_ARTWORKS.find((art) => art.categoryHint === category)
+    ?? CG_ARTWORKS[category === "云端部署与效率" ? 3 : 2];
+  return { ...artwork, objectPosition: cardPositions[index % cardPositions.length] ?? cardPositions[0] };
+}
+
+export const HAGEMI_PET = {
+  id: "hagemi",
+  name: "哈基米",
+  title: "反重力桌宠",
+  credit: "CrossPet / hagemi-pet-agy · CC BY-NC-SA 4.0",
+  poses: {
+    idle: { webp: "./art/pet-idle.webp", png: "./art/pet-idle.png" },
+    happy: { webp: "./art/pet-happy.webp", png: "./art/pet-happy.png" },
+    pat: { webp: "./art/pet-pat.webp", png: "./art/pet-pat.png" },
+    searching: { webp: "./art/pet-searching.webp", png: "./art/pet-searching.png" },
+    thinking: { webp: "./art/pet-thinking.webp", png: "./art/pet-thinking.png" },
+    surprised: { webp: "./art/pet-surprised.webp", png: "./art/pet-surprised.png" },
+  },
+  greetings: {
+    morning: "早喵！耳朵醒了，尾巴还在赖床。",
+    afternoon: "午安喵！今天想逛哪颗星？",
+    midnight: "夜深啦，我把星星调暗一点。",
+  },
+  search: "耳朵竖好，帮你找找喵！",
+  syncing: "等一下喵，我在听雷达的回音。",
+  live: "新信号全部收到！尾巴摇摇。",
+  partialLive: "收到一部分新信号，其余翻旧记录喵。",
+  cache: "信号有点远，翻出上次的记录啦。",
+  snapshot: "先递上随身快照，喵。",
+  pat: ["呼噜噜……再摸一下？", "星星发卡都被摸暖啦！", "头顶收到一份满格快乐。"],
+  poke: ["喵呜！差点飘上天花板。", "咦？这里也能戳到我！", "抓到了！回送你一个猫爪。"],
+  theme: {
+    starlight: "星穹亮啦，我去捡一颗小星星。",
+    sakura: "是昼樱！花瓣落在耳朵上啦。",
+    akiba: "霓虹灯亮了，跟上我的尾巴喵！",
+    miku: "听见初音的旋律了，跟着拍子飘～",
+  },
+  category: {
+    "全部": "导航图摊开啦，挑一个坐标吧！",
+    "Galgame 档案": "存好档，再出发喵！",
+    "动漫追番": "零食就位，今晚追哪部？",
+    "二次元插画与社区": "想把这一页画收藏起来喵。",
+    "AI 大模型入口": "模型入口排排坐，听你点名。",
+    "云端部署与效率": "工具备齐，今天也轻松上线喵！",
+  },
+};
+
 export function resolveMascotId(mascotPref, themeId) {
   if (mascotPref === "sena" || mascotPref === "sakura") return mascotPref;
   return THEME_VISUALS[themeId]?.defaultMascotId || "sena";

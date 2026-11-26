@@ -6,7 +6,10 @@ import {
 } from './store.js';
 import { loadAiRadarCache, fetchLiveAiRadar, formatContextWindow } from './aiRadar.js';
 import snapshot from './data/aiModelsSnapshot.json';
-import { THEME_VISUALS, MASCOTS, THEME_SWITCH_LINES, CATEGORY_LINES, AI_RADAR_SYNC_LINES, HITOKOTO_LIST, resolveMascotId, pickGreeting } from './data/acgDialogues.js';
+import {
+  THEME_VISUALS, MASCOTS, THEME_SWITCH_LINES, CATEGORY_LINES, AI_RADAR_SYNC_LINES,
+  HITOKOTO_LIST, CG_ARTWORKS, HAGEMI_PET, resolveMascotId, pickGreeting, pickSiteArt,
+} from './data/acgDialogues.js';
 
 const root = document.querySelector('#app');
 const shell = el('main', { className: 'shell' });
@@ -14,25 +17,68 @@ root.append(shell);
 const backdropStage = document.querySelector('#backdrop-stage');
 const backdropSource = document.querySelector('#backdrop-webp');
 const backdropImage = document.querySelector('#backdrop-img');
+const radarArt = CG_ARTWORKS.find(({ id }) => id === 'cg-radar');
 let state = loadState();
 let category = '全部';
 let query = '';
 let provider = '全部';
 let radar = loadAiRadarCache() ?? snapshot;
 let syncing = false;
+let petSyncing = false;
 let speech = '';
+let petMood = 'idle';
+let petSpeech = '';
+let petTimer;
+let petPokes = 0;
 let quoteIndex = 0;
+const isPet = () => state.mascotId === 'auto';
 const mascotId = () => resolveMascotId(state.mascotId, state.theme);
-const isCurrentMascot = (id) => !state.mascotHidden && mascotId() === id;
-const mascotPickLabel = (current) => current ? '当前陪伴中' : '设为看板娘';
+const isCurrentMascot = (id) => !state.mascotHidden && state.mascotId === id;
+const mascotPickLabel = (current, id) => id === 'auto' ? '切回哈基米桌宠' : current ? '当前陪伴中' : '设为看板娘';
+const pickLine = (lines) => lines[Math.floor(Math.random() * lines.length)];
+function petGreeting() {
+  const hour = new Date().getHours();
+  return HAGEMI_PET.greetings[hour < 5 || hour >= 19 ? 'midnight' : hour < 12 ? 'morning' : 'afternoon'];
+}
+function setPetMood(mood, line = '', duration = 0) {
+  clearTimeout(petTimer);
+  petMood = mood;
+  petSpeech = line;
+  const art = shell.querySelector('.is-pet .mascot-art');
+  if (art) {
+    const { webp, png } = HAGEMI_PET.poses[mood];
+    const source = art.querySelector('source');
+    const image = art.querySelector('img');
+    if (source.getAttribute('srcset') !== webp) source.srcset = webp;
+    if (image.getAttribute('src') !== png) image.src = png;
+    art.classList.toggle('is-idle', mood === 'idle');
+    const bubble = shell.querySelector('#mascot-speech');
+    const text = line || petGreeting();
+    if (bubble.textContent !== text) bubble.textContent = text;
+  }
+  if (duration) petTimer = setTimeout(restPet, duration);
+}
+function restPet() {
+  if (petSyncing) setPetMood('thinking', HAGEMI_PET.syncing);
+  else if (isPet() && document.activeElement?.id === 'global-search-input') setPetMood('searching', HAGEMI_PET.search);
+  else setPetMood('idle');
+}
 function speak(line) { speech = line || ''; const bubble = document.querySelector('#mascot-speech'); if (bubble) bubble.textContent = speech; }
-function sayFrom(lines, key) { speak(lines[key]?.[mascotId()]); }
-function chooseTheme(id) { state = saveState({ ...state, theme: id, customWallpaper: '' }); speech = THEME_SWITCH_LINES[id]?.[mascotId()] || ''; render(); }
-function picture(webp, jpg, width, height, alt = '') {
-  const image = el('img', { width, height, alt, decoding: 'async' });
-  const node = el('picture', {}, [el('source', { type: 'image/webp', srcset: webp }), image]);
-  image.src = jpg;
+function chooseTheme(id) {
+  state = saveState({ ...state, theme: id, customWallpaper: '' });
+  if (isPet()) setPetMood('idle', HAGEMI_PET.theme[id]);
+  else speech = THEME_SWITCH_LINES[id]?.[mascotId()] || '';
+  render();
+}
+function picture(webp, fallback, width, height, alt = '', pictureAttrs = {}, imageAttrs = {}) {
+  const image = el('img', { width, height, alt, decoding: 'async', ...imageAttrs });
+  const node = el('picture', pictureAttrs, [el('source', { type: 'image/webp', srcset: webp }), image]);
+  image.src = fallback;
   return node;
+}
+function petPicture(pose) {
+  const { webp, png } = HAGEMI_PET.poses[pose];
+  return picture(webp, png, 555, 640, '哈基米立绘', { className: 'pet-artwork' });
 }
 function syncBackdrop() {
   const visual = THEME_VISUALS[state.theme];
@@ -133,11 +179,16 @@ function apply() {
   document.querySelector('meta[name="color-scheme"]').content = theme.colorScheme;
   document.querySelector('#meta-theme-color').content = theme.themeColor;
 }
-function card(site) {
-  return el('article', { className: 'site-card', style: `--site-accent:${safeAccent(site.accent)}` }, [
+function card(site, index) {
+  const art = pickSiteArt(site.category, index);
+  return el('article', {
+    className: 'site-card',
+    style: `--site-accent:${safeAccent(site.accent)};--cg-position:${art.objectPosition}`,
+  }, [
+    picture(art.bgWebp, art.bgJpg, 1376, 768, '', { className: 'card-cg', 'aria-hidden': 'true' }, { loading: 'lazy' }),
     el('div', { className: 'card-top' }, [
       el('span', { className: 'avatar', 'aria-hidden': 'true', textContent: site.name.slice(0, 1) }),
-      el('div', {}, [link(site.name, site.url), el('small', { textContent: site.category })]),
+      el('div', { title: site.name }, [link(site.name, site.url), el('small', { textContent: site.category, title: site.category })]),
     ]),
     el('p', { textContent: site.description }),
     el('div', { className: 'tags' }, (site.tags || []).slice(0, 2).map((tag) => el('span', { className: 'tag-pill', textContent: tag }))),
@@ -191,11 +242,14 @@ function showDialog(d) {
   }
   d.showModal();
 }
-async function sync() {
+async function sync(event) {
   if (syncing) return;
   clearTimeout(initialSync);
   syncing = true;
-  sayFrom(AI_RADAR_SYNC_LINES, 'syncing');
+  petSyncing = Boolean(event);
+  if (isPet()) {
+    if (petSyncing) setPetMood('thinking', HAGEMI_PET.syncing);
+  } else speak(AI_RADAR_SYNC_LINES.syncing[mascotId()]);
   renderAiRadarSection();
   try {
     fallbackKind = loadAiRadarCache() ? '缓存' : '快照';
@@ -204,7 +258,12 @@ async function sync() {
     toast(`同步失败：${error.message}`);
   } finally {
     syncing = false;
-    sayFrom(AI_RADAR_SYNC_LINES, radar.syncMode);
+    const showPetResult = petSyncing;
+    petSyncing = false;
+    if (isPet()) {
+      const mode = radar.syncMode === 'partial-live' ? 'partialLive' : radar.syncMode;
+      if (showPetResult) setPetMood('happy', HAGEMI_PET[mode] || HAGEMI_PET.snapshot, 2000);
+    } else speak(AI_RADAR_SYNC_LINES[radar.syncMode]?.[mascotId()]);
     renderAiRadarSection();
   }
 }
@@ -269,8 +328,9 @@ function setMascotHidden(hidden) {
   command.textContent = hidden ? '呼出看板娘' : '隐藏看板娘';
   for (const pick of shell.querySelectorAll('.mascot-pick')) {
     const current = isCurrentMascot(pick.dataset.pick);
-    pick.textContent = mascotPickLabel(current);
+    pick.textContent = mascotPickLabel(current, pick.dataset.pick);
     pick.setAttribute('aria-disabled', String(current));
+    pick.setAttribute('aria-pressed', String(current));
   }
 }
 function topbarTools(file) {
@@ -427,6 +487,89 @@ function topbarTools(file) {
   return [trigger, menu];
 }
 
+function selectMascot(id, fromProfile = false) {
+  state = saveState({ ...state, mascotId: id, mascotHidden: false });
+  speech = fromProfile && !isPet() ? MASCOTS[id].catchphrase : '';
+  restPet();
+  render();
+  const control = fromProfile ? `.mascot-pick[data-pick="${id}"]` : `.mascot-controls [data-pick="${id}"]`;
+  shell.querySelector(control)?.focus({ preventScroll: true });
+}
+
+function mascotPanel() {
+  const pet = isPet();
+  const mascot = MASCOTS[mascotId()];
+  const name = pet ? '哈基米 Hagemi · ' + HAGEMI_PET.title : mascot.name + ' · ' + (mascot.id === 'sena' ? '星穹姬' : '昼樱姬');
+  const portrait = el('button', {
+    type: 'button', className: pet && petMood === 'idle' ? 'mascot-art is-idle' : 'mascot-art',
+    'aria-label': pet ? '戳一戳哈基米' : '点击看板娘互动',
+    onClick: () => {
+      if (pet) {
+        petPokes += 1;
+        setPetMood(petPokes % 3 === 0 ? 'happy' : 'surprised', pickLine(HAGEMI_PET.poke), 1200);
+      } else speak(pickLine(mascot.greetings.poke));
+    },
+  }, [pet ? petPicture(petMood) : picture(mascot.avatarWebp, mascot.avatarJpg, 104, 138, mascot.name + '立绘')]);
+  const bubble = el('p', {
+    id: 'mascot-speech', className: 'speech', 'aria-live': 'polite',
+    textContent: pet ? petSpeech || petGreeting() : speech || pickGreeting(mascot.id, new Date().getHours()),
+  });
+  return el('aside', { id: 'mascot-panel', className: pet ? 'mascot-stage is-pet' : 'mascot-stage', hidden: state.mascotHidden }, [
+    portrait,
+    el('div', { className: 'mascot-dialogue' }, [
+      el('span', { className: 'mascot-name', textContent: name }),
+      pet ? el('div', { className: 'pet-bubble' }, [bubble]) : bubble,
+      el('div', { className: 'mascot-controls' }, [
+        pet ? button('摸摸头', () => setPetMood('pat', pickLine(HAGEMI_PET.pat), 2000)) : null,
+        ...[['auto', '哈基米'], ['sena', '星奈'], ['sakura', '樱雪']].map(([id, label]) => button(label, () => selectMascot(id), {
+          'data-pick': id, className: state.mascotId === id ? 'active' : '', 'aria-pressed': String(state.mascotId === id),
+        })),
+        button('暂别', () => {
+          setMascotHidden(true);
+          shell.querySelector('.recall').focus({ preventScroll: true });
+        }),
+      ]),
+    ]),
+  ]);
+}
+
+function mascotProfileButton(id) {
+  const current = isCurrentMascot(id);
+  return button(mascotPickLabel(current, id), () => {
+    if (!isCurrentMascot(id)) selectMascot(id, true);
+  }, { className: 'mascot-pick', 'data-pick': id, 'aria-disabled': String(current), 'aria-pressed': String(current) });
+}
+
+function openCgLightbox(index, trigger) {
+  const d = el('dialog', { id: 'cg-lightbox', closedby: 'any', 'aria-labelledby': 'cg-lightbox-title' });
+  const view = el('div', { className: 'lightbox-view' });
+  const title = el('h2', { id: 'cg-lightbox-title' });
+  const subtitle = el('p');
+  const show = (offset) => {
+    index = (index + offset + CG_ARTWORKS.length) % CG_ARTWORKS.length;
+    const art = CG_ARTWORKS[index];
+    view.replaceChildren(picture(art.bgWebp, art.bgJpg, 1376, 768, art.title));
+    title.textContent = art.title;
+    subtitle.textContent = art.subtitle;
+  };
+  d.append(view, el('div', { className: 'lightbox-bar' }, [
+    el('div', { 'aria-live': 'polite' }, [title, subtitle]),
+    el('div', { className: 'actions' }, [
+      button('上一张', () => show(-1)),
+      button('下一张', () => show(1)),
+      button('关闭', () => d.close(), { autofocus: true }),
+    ]),
+  ]));
+  d.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    show(event.key === 'ArrowLeft' ? -1 : 1);
+  });
+  d.addEventListener('close', () => trigger.focus({ preventScroll: true }));
+  show(0);
+  showDialog(d);
+}
+
 function render() {
   const active = document.activeElement;
   const activeId = active?.id;
@@ -436,9 +579,18 @@ function render() {
   apply();
   syncBackdrop();
   const visual = THEME_VISUALS[state.theme];
-  const mascot = MASCOTS[mascotId()];
   const engine = DEFAULT_SEARCH_ENGINES.find((item) => item.id === state.searchEngineId) || DEFAULT_SEARCH_ENGINES[0];
-  const input = el('input', { id: 'global-search-input', 'aria-label': '搜索网站或输入关键词', placeholder: '搜索网站或输入关键词', value: query, onInput: (event) => { query = event.target.value; results(); } });
+  const searchPet = () => { if (isPet()) setPetMood('searching', HAGEMI_PET.search); };
+  const input = el('input', {
+    id: 'global-search-input', 'aria-label': '搜索网站或输入关键词', placeholder: '搜索网站或输入关键词', value: query,
+    onFocus: searchPet,
+    onBlur: () => {
+      if (!isPet() || petMood !== 'searching') return;
+      if (petSyncing) setPetMood('thinking', HAGEMI_PET.syncing);
+      else setPetMood('idle');
+    },
+    onInput: (event) => { query = event.target.value; searchPet(); results(); },
+  });
   const engineSearch = el('form', {
     className: 'search', role: 'search',
     onSubmit: (event) => {
@@ -510,35 +662,14 @@ function render() {
       el('div', { className: 'scene-plaque' }, [
         el('span', { textContent: '✦ 当前世界线 · ' + visual.sceneTitle }),
       ]),
-      el('aside', { id: 'mascot-panel', className: 'mascot-stage', hidden: state.mascotHidden }, [
-        el('button', { type: 'button', className: 'mascot-art', 'aria-label': '点击看板娘互动', onClick: () => {
-          const lines = mascot.greetings.poke;
-          speak(lines[Math.floor(Math.random() * lines.length)]);
-        } }, [picture(mascot.avatarWebp, mascot.avatarJpg, 104, 138, mascot.name + '立绘')]),
-        el('div', { className: 'mascot-dialogue' }, [
-          el('span', { className: 'mascot-name', textContent: mascot.name + ' · ' + (mascot.id === 'sena' ? '星穹姬' : '昼樱姬') }),
-          el('p', { id: 'mascot-speech', className: 'speech', 'aria-live': 'polite', textContent: speech || pickGreeting(mascot.id, new Date().getHours()) }),
-          el('div', { className: 'mascot-controls' }, [
-            ...[['auto', '跟随'], ['sena', '星奈'], ['sakura', '樱雪']].map(([id, label]) => button(label, () => {
-              state = saveState({ ...state, mascotId: id });
-              speech = '';
-              render();
-            }, { className: state.mascotId === id ? 'active' : '', 'aria-pressed': String(state.mascotId === id) })),
-            button('暂别', () => {
-              setMascotHidden(true);
-              shell.querySelector('.recall').focus({ preventScroll: true });
-            }),
-          ]),
-        ]),
-      ]),
+      mascotPanel(),
     ])]),
     el('div', { className: 'editorial-content' }, [
         el('section', { className: 'visual-gallery' }, [
           el('div', { className: 'gallery-heading' }, [
-            el('h2', { className: 'section-title', textContent: '世界线 · 画廊' }),
-            el('span', { textContent: '选择世界线以切换主题与壁纸' }),
+            el('h2', { className: 'section-title', textContent: '世界线 · CG 原画廊' }),
           ]),
-          el('div', { className: 'gallery-grid' }, THEMES.map((theme) => {
+          el('div', { className: 'gallery-grid' }, [...THEMES.map((theme) => {
             const scene = THEME_VISUALS[theme.id];
             const active = theme.id === state.theme;
             return el('button', {
@@ -552,38 +683,65 @@ function render() {
                 active ? el('span', { className: 'gallery-current', textContent: '当前世界线' }) : null,
               ]),
             ]);
-          })),
+          }), ...CG_ARTWORKS.map((art, index) => el('button', {
+            type: 'button', className: 'gallery-card cg-gallery-card', 'aria-haspopup': 'dialog',
+            onClick: (event) => openCgLightbox(index, event.currentTarget),
+          }, [
+            picture(art.bgWebp, art.bgJpg, 1376, 768),
+            el('span', { className: 'gallery-caption' }, [
+              el('strong', { textContent: art.title }),
+              el('small', { textContent: art.tag }),
+            ]),
+          ]))]),
         ]),
         el('section', {}, [
-          el('h2', { textContent: '看板双姬档案' }),
-          el('div', { className: 'mascot-gallery' }, [MASCOTS.sena, MASCOTS.sakura].map((character, index) => {
-            const current = isCurrentMascot(character.id);
-            return el('figure', { className: 'mascot-card' }, [
-              el('div', { className: 'mascot-frame' }, [
-                picture(character.avatarWebp, character.avatarJpg, 240, 320, character.name + '立绘'),
-              ]),
+          el('h2', { textContent: '桌宠与看板档案' }),
+          el('div', { className: 'mascot-gallery' }, [
+            el('figure', { className: 'pet-profile' }, [
+              petPicture('idle'),
               el('figcaption', { className: 'mascot-info' }, [
                 el('div', { className: 'mascot-title-row' }, [
-                  el('strong', { textContent: character.name }),
-                  el('span', { className: 'mascot-badge', textContent: `No.0${index + 1}` }),
-                  el('small', { textContent: character.title }),
+                  el('strong', { textContent: '哈基米 Hagemi' }),
+                  el('small', { textContent: HAGEMI_PET.title }),
                 ]),
-                el('p', { className: 'mascot-world', textContent: character.cvStyle }),
-                el('p', { className: 'mascot-line', textContent: character.catchphrase }),
-                button(mascotPickLabel(current), () => {
-                  if (isCurrentMascot(character.id)) return;
-                  state = saveState({ ...state, mascotId: character.id, mascotHidden: false });
-                  speech = character.catchphrase;
-                  render();
-                  shell.querySelector(`[data-pick="${character.id}"]`)?.focus({ preventScroll: true });
-                }, { className: 'mascot-pick', 'data-pick': character.id, 'aria-disabled': String(current) }),
+                mascotProfileButton('auto'),
+                el('small', { className: 'pet-credit', textContent: HAGEMI_PET.credit }),
               ]),
-            ]);
-          })),
+            ]),
+            ...[MASCOTS.sena, MASCOTS.sakura].map((character, index) =>
+              el('figure', { className: 'mascot-card' }, [
+                el('div', { className: 'mascot-frame' }, [
+                  picture(character.avatarWebp, character.avatarJpg, 240, 320, character.name + '立绘'),
+                ]),
+                el('figcaption', { className: 'mascot-info' }, [
+                  el('div', { className: 'mascot-title-row' }, [
+                    el('strong', { textContent: character.name }),
+                    el('span', { className: 'mascot-badge', textContent: `No.0${index + 1}` }),
+                    el('small', { textContent: character.title }),
+                  ]),
+                  el('p', { className: 'mascot-world', textContent: character.cvStyle }),
+                  el('p', { className: 'mascot-line', textContent: character.catchphrase }),
+                  mascotProfileButton(character.id),
+                ]),
+              ]),
+            ),
+          ]),
         ]),
         el('section', {}, [el('h2', { textContent: '常用置顶' }), el('div', { className: 'grid' }, state.sites.filter((site) => site.pinned).map(card))]),
-        el('section', { id: 'ai-radar-section', className: 'ai-radar-section' }, [el('div', { id: 'ai-radar-body' }, aiRadarContent())]),
-        el('section', {}, [el('div', { className: 'section-head' }, [el('h2', { className: 'section-title', textContent: '探索网址库' }), el('span', { id: 'count' })]), chips(['全部', ...listCategories(state.sites)], category, (item) => { category = item; sayFrom(CATEGORY_LINES, item); render(); }), el('div', { id: 'results', className: 'grid' })]),
+        el('section', { id: 'ai-radar-section', className: 'ai-radar-section' }, [
+          picture(radarArt.bgWebp, radarArt.bgJpg, 1376, 768, '', { className: 'radar-backdrop', 'aria-hidden': 'true' }),
+          el('div', { id: 'ai-radar-body' }, aiRadarContent()),
+        ]),
+        el('section', {}, [
+          el('div', { className: 'section-head' }, [el('h2', { className: 'section-title', textContent: '探索网址库' }), el('span', { id: 'count' })]),
+          chips(['全部', ...listCategories(state.sites)], category, (item) => {
+            category = item;
+            if (isPet()) setPetMood('idle', HAGEMI_PET.category[item] ?? HAGEMI_PET.category['全部']);
+            else speak(CATEGORY_LINES[item]?.[mascotId()]);
+            render();
+          }),
+          el('div', { id: 'results', className: 'grid' }),
+        ]),
         el('footer', { textContent: '✦ 在热爱中，发现更多可能 · NavHub' }),
     ]),
   );

@@ -25,7 +25,7 @@ import {
   updateSite,
   validateSiteDraft,
 } from "../src/store.js";
-import { MASCOTS, THEME_VISUALS, pickGreeting, resolveMascotId } from "../src/data/acgDialogues.js";
+import { CG_ARTWORKS, HAGEMI_PET, MASCOTS, THEME_VISUALS, pickGreeting, pickSiteArt, resolveMascotId } from "../src/data/acgDialogues.js";
 import { DEFAULT_CATEGORIES, DEFAULT_SEARCH_ENGINES } from "../src/data/defaultSites.js";
 
 function makeMemoryStorage() {
@@ -60,6 +60,34 @@ test("ACG artwork uses relative WebP and JPG paths backed by public files", asyn
       assert.ok((await stat(new URL(path, publicDirectory))).isFile(), path);
     }
   }));
+});
+
+test("CG illustrations and all six Hagemi poses have matching public artwork files", async () => {
+  const publicDirectory = new URL("../public/", import.meta.url);
+  const assertPair = async (stem, webp, fallback, extension) => {
+    assert.equal(webp, `./art/${stem}.webp`);
+    assert.equal(fallback, `./art/${stem}.${extension}`);
+    for (const path of [webp, fallback]) {
+      const file = await stat(new URL(path, publicDirectory));
+      assert.ok(file.isFile() && file.size > 0, path);
+    }
+  };
+
+  assert.deepEqual(CG_ARTWORKS.map(({ id }) => id), ["cg-galgame", "cg-pixiv", "cg-nightcafe", "cg-radar"]);
+  assert.deepEqual(Object.keys(HAGEMI_PET.poses), ["idle", "happy", "pat", "searching", "thinking", "surprised"]);
+  await Promise.all([
+    ...CG_ARTWORKS.map(({ id, bgWebp, bgJpg }) => assertPair(id, bgWebp, bgJpg, "jpg")),
+    ...Object.entries(HAGEMI_PET.poses).map(([pose, { webp, png }]) => assertPair(`pet-${pose}`, webp, png, "png")),
+  ]);
+});
+
+test("site art maps categories and offsets neighboring crops", () => {
+  for (const art of CG_ARTWORKS) assert.equal(pickSiteArt(art.categoryHint, 0).id, art.id);
+  assert.equal(pickSiteArt("云端部署与效率", 0).id, "cg-radar");
+  assert.equal(pickSiteArt("自定义标签", 0).id, "cg-nightcafe");
+  const positions = [0, 1, 2, 3].map((index) => pickSiteArt("Galgame 档案", index).objectPosition);
+  assert.equal(new Set(positions.slice(0, 3)).size, 3);
+  assert.equal(positions[0], positions[3]);
 });
 
 test("mascot selection follows theme defaults and greetings follow hour boundaries", () => {
