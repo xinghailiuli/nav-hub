@@ -19,35 +19,17 @@
   }
 
   const state = readState("navhub.state.v2") ?? readState("navhub.state.v1");
-  const themeColors = { starlight: "#090b1a", sakura: "#fff7fa", akiba: "#070614", miku: "#071521" };
   let theme = state?.theme;
   if (theme === "dark") theme = "starlight";
   if (theme === "light") theme = "sakura";
-  if (typeof theme !== "string" || !Object.hasOwn(themeColors, theme)) theme = "starlight";
+  if (!["starlight", "sakura", "akiba", "miku"].includes(theme)) theme = "starlight";
 
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.motionPaused = String(state?.motionPaused === true);
   document.querySelector('meta[name="color-scheme"]').content = theme === "sakura" ? "light" : "dark";
-  document.querySelector("#meta-theme-color").content = themeColors[theme];
-
-  const wallpaper = state?.customWallpaper;
-  let hasWallpaper = false;
-  if (typeof wallpaper === "string" && /^https?:\/\/[^/\s?#\\]/i.test(wallpaper)
-    && !/^https?:\/\/[^/?#]*@/i.test(wallpaper) && !/[\u0000-\u0020\u007f\\]/.test(wallpaper)) {
-    try {
-      const parsed = new URL(wallpaper);
-      hasWallpaper = Boolean(parsed.hostname) && !parsed.username && !parsed.password;
-    } catch {}
-  }
-  if (!hasWallpaper && document.head) {
-    const preload = document.createElement("link");
-    preload.rel = "preload";
-    preload.as = "image";
-    preload.type = "image/webp";
-    preload.setAttribute("fetchpriority", "high");
-    preload.href = "./art/bg-" + theme + ".webp";
-    document.head.append(preload);
-  }
+  document.querySelector('#meta-theme-color').content = {
+    starlight: "#090b1a", sakura: "#fff7fa", akiba: "#070614", miku: "#071521"
+  }[theme];
 })();
 </script>
   <style>.backdrop-stage{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}.backdrop-stage picture,.backdrop-img{display:block;width:100%;height:100%}.backdrop-img{object-fit:cover;object-position:76% 18%}</style>
@@ -72,6 +54,15 @@
   let wallpaper = "";
   if (typeof raw === "string" && /^https?:\/\/[^/\s?#\\]/i.test(raw) && !/^https?:\/\/[^/?#]*@/i.test(raw) && !/[\u0000-\u0020\u007f\\]/.test(raw)) {
     try { const url = new URL(raw); if (url.hostname && !url.username && !url.password) wallpaper = url.href; } catch {}
+  }
+  if (!wallpaper) {
+    const preload = document.createElement("link");
+    preload.rel = "preload";
+    preload.as = "image";
+    preload.type = "image/webp";
+    preload.setAttribute("fetchpriority", "high");
+    preload.href = base + ".webp";
+    document.head.append(preload);
   }
   const stage = document.getElementById("backdrop-stage");
   stage.dataset.backdropMode = state?.backdropMode === "vivid" ? "vivid" : "balanced";

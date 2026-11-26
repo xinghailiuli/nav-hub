@@ -1,6 +1,6 @@
 {
   "snapshotSource": "build-live",
-  "generatedAt": "2026-11-26T09:01:16.051Z",
+  "generatedAt": "2026-11-26T10:15:36.210Z",
   "syncMode": "snapshot",
   "sourceResults": {
     "openrouter": true,
@@ -270,8 +270,8 @@
         "contextWindow": 1048576,
         "created": 1792225624,
         "pricing": {
-          "prompt": "0.0000003",
-          "completion": "0.0000012"
+          "prompt": "0.00000015",
+          "completion": "0.0000006"
         }
       },
       "recentModels": [
@@ -282,8 +282,8 @@
           "contextWindow": 1048576,
           "created": 1792225624,
           "pricing": {
-            "prompt": "0.0000003",
-            "completion": "0.0000012"
+            "prompt": "0.00000015",
+            "completion": "0.0000006"
           }
         },
         {

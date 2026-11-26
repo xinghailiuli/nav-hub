@@ -23,6 +23,8 @@ let syncing = false;
 let speech = '';
 let quoteIndex = 0;
 const mascotId = () => resolveMascotId(state.mascotId, state.theme);
+const isCurrentMascot = (id) => !state.mascotHidden && mascotId() === id;
+const mascotPickLabel = (current) => current ? '当前陪伴中' : '设为看板娘';
 function speak(line) { speech = line || ''; const bubble = document.querySelector('#mascot-speech'); if (bubble) bubble.textContent = speech; }
 function sayFrom(lines, key) { speak(lines[key]?.[mascotId()]); }
 function chooseTheme(id) { state = saveState({ ...state, theme: id, customWallpaper: '' }); speech = THEME_SWITCH_LINES[id]?.[mascotId()] || ''; render(); }
@@ -70,6 +72,27 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const safeAccent = (color) => /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color ?? '') ? color : 'var(--accent)';
+
+function searchIcon() {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  const lens = document.createElementNS(SVG_NS, 'circle');
+  const handle = document.createElementNS(SVG_NS, 'path');
+  const attrs = {
+    class: 'search-icon', viewBox: '0 0 24 24', width: '18', height: '18',
+    fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round',
+    'aria-hidden': 'true', focusable: 'false',
+  };
+  for (const [name, value] of Object.entries(attrs)) svg.setAttribute(name, value);
+  lens.setAttribute('cx', '11');
+  lens.setAttribute('cy', '11');
+  lens.setAttribute('r', '7');
+  handle.setAttribute('d', 'M20 20l-4.2-4.2');
+  svg.append(lens, handle);
+  return svg;
+}
+
 const button = (label, fn, attrs = {}) => el('button', { type: 'button', textContent: label, onClick: fn, ...attrs });
 function link(label, url) {
   return isSafeHttpUrl(url)
@@ -111,7 +134,7 @@ function apply() {
   document.querySelector('#meta-theme-color').content = theme.themeColor;
 }
 function card(site) {
-  return el('article', { className: 'site-card', style: `--site-accent:${site.accent}` }, [
+  return el('article', { className: 'site-card', style: `--site-accent:${safeAccent(site.accent)}` }, [
     el('div', { className: 'card-top' }, [
       el('span', { className: 'avatar', 'aria-hidden': 'true', textContent: site.name.slice(0, 1) }),
       el('div', {}, [link(site.name, site.url), el('small', { textContent: site.category })]),
@@ -244,6 +267,11 @@ function setMascotHidden(hidden) {
   shell.querySelector('.recall').hidden = !hidden;
   const command = shell.querySelector('#toggle-mascot');
   command.textContent = hidden ? '呼出看板娘' : '隐藏看板娘';
+  for (const pick of shell.querySelectorAll('.mascot-pick')) {
+    const current = isCurrentMascot(pick.dataset.pick);
+    pick.textContent = mascotPickLabel(current);
+    pick.setAttribute('aria-disabled', String(current));
+  }
 }
 function topbarTools(file) {
   topbarTools.cleanup?.();
@@ -411,6 +439,32 @@ function render() {
   const mascot = MASCOTS[mascotId()];
   const engine = DEFAULT_SEARCH_ENGINES.find((item) => item.id === state.searchEngineId) || DEFAULT_SEARCH_ENGINES[0];
   const input = el('input', { id: 'global-search-input', 'aria-label': '搜索网站或输入关键词', placeholder: '搜索网站或输入关键词', value: query, onInput: (event) => { query = event.target.value; results(); } });
+  const engineSearch = el('form', {
+    className: 'search', role: 'search',
+    onSubmit: (event) => {
+      event.preventDefault();
+      const url = buildSearchUrl(engine.id, input.value);
+      if (isSafeHttpUrl(url)) window.open(url, '_blank', 'noopener,noreferrer');
+    },
+  }, [
+    searchIcon(),
+    input,
+    el('kbd', { className: 'search-kbd', 'aria-hidden': 'true', textContent: 'Enter' }),
+    button('清空', () => { query = ''; input.value = ''; results(); input.focus(); }, { className: 'clear-search', 'aria-label': '清空搜索' }),
+    el('button', { type: 'submit', textContent: `${engine.name} 搜索` }),
+  ]);
+  const quickPins = state.sites.filter((site) => site.pinned && isSafeHttpUrl(site.url)).slice(0, 6);
+  const quickPinNav = quickPins.length ? el('nav', { className: 'quick-pins', 'aria-label': '置顶高频直达' },
+    quickPins.map((site) => el('a', {
+      className: 'quick-pin', href: site.url, target: '_blank', rel: 'noopener noreferrer',
+      style: `--site-accent:${safeAccent(site.accent)}`,
+    }, [
+      el('span', { className: 'quick-dot', 'aria-hidden': 'true' }),
+      el('span', { className: 'quick-pin-name', textContent: site.name }),
+      el('span', { className: 'quick-arrow', 'aria-hidden': 'true', textContent: '↗' }),
+      el('span', { className: 'sr-only', textContent: '（新标签页打开）' }),
+    ])),
+  ) : null;
   const file = el('input', { type: 'file', accept: '.json,application/json', hidden: true, onChange: async (event) => {
     try {
       const selected = event.target.files[0];
@@ -437,15 +491,16 @@ function render() {
       ]),
     ]),
     el('section', { className: 'hero-stage' }, [el('div', { className: 'hero hero-main hero-panel' }, [
-      el('span', { className: 'emblem', 'aria-hidden': 'true', textContent: '✦' }),
       el('p', { className: 'eyebrow', textContent: '星海 · 导航手册' }),
-      el('h1', { textContent: '发现属于你的星空' }), el('p', { className: 'hero-subtitle', textContent: visual.tagline }),
-      el('div', { className: 'hitokoto' }, [el('span', { id: 'quote-text', textContent: HITOKOTO_LIST[quoteIndex].quote + ' — ' + HITOKOTO_LIST[quoteIndex].source }), button('换一句', () => { quoteIndex = (quoteIndex + 1) % HITOKOTO_LIST.length; document.querySelector('#quote-text').textContent = HITOKOTO_LIST[quoteIndex].quote + ' — ' + HITOKOTO_LIST[quoteIndex].source; })]), el('p', { id: 'clock', className: 'clock' }),
-      el('form', { className: 'search', onSubmit: (event) => { event.preventDefault(); const url = buildSearchUrl(engine.id, input.value); if (isSafeHttpUrl(url)) window.open(url, '_blank', 'noopener,noreferrer'); } }, [
-        input, button('清空', () => { query = ''; input.value = ''; results(); input.focus(); }, { className: 'clear-search', 'aria-label': '清空搜索' }),
-        el('button', { type: 'submit', textContent: `${engine.name} 搜索` }),
+      el('h1', {}, [
+        el('span', { className: 'hero-title-accent', textContent: '发现属于你的' }),
+        '星空',
       ]),
+      el('p', { className: 'hero-subtitle', textContent: visual.tagline }),
+      el('div', { className: 'hitokoto' }, [el('span', { id: 'quote-text', textContent: HITOKOTO_LIST[quoteIndex].quote + ' — ' + HITOKOTO_LIST[quoteIndex].source }), button('换一句', () => { quoteIndex = (quoteIndex + 1) % HITOKOTO_LIST.length; document.querySelector('#quote-text').textContent = HITOKOTO_LIST[quoteIndex].quote + ' — ' + HITOKOTO_LIST[quoteIndex].source; })]), el('p', { id: 'clock', className: 'clock' }),
+      engineSearch,
       chips(DEFAULT_SEARCH_ENGINES, state.searchEngineId, (item) => { state = saveState({ ...state, searchEngineId: item.id }); render(); }),
+      quickPinNav,
       el('small', { className: 'search-hint', textContent: '按 / 快速搜索' }),
       button('✦ 呼出看板娘', () => {
         setMascotHidden(false);
@@ -500,16 +555,28 @@ function render() {
           })),
         ]),
         el('section', {}, [
-          el('h2', { textContent: '看板画集' }),
-          el('div', { className: 'mascot-gallery' }, [['sena', '星穹姬'], ['sakura', '昼樱姬']].map(([id, title]) => {
-            const character = MASCOTS[id];
+          el('h2', { textContent: '看板双姬档案' }),
+          el('div', { className: 'mascot-gallery' }, [MASCOTS.sena, MASCOTS.sakura].map((character, index) => {
+            const current = isCurrentMascot(character.id);
             return el('figure', { className: 'mascot-card' }, [
               el('div', { className: 'mascot-frame' }, [
                 picture(character.avatarWebp, character.avatarJpg, 240, 320, character.name + '立绘'),
               ]),
-              el('figcaption', {}, [
-                el('strong', { textContent: character.name }),
-                el('small', { textContent: title }),
+              el('figcaption', { className: 'mascot-info' }, [
+                el('div', { className: 'mascot-title-row' }, [
+                  el('strong', { textContent: character.name }),
+                  el('span', { className: 'mascot-badge', textContent: `No.0${index + 1}` }),
+                  el('small', { textContent: character.title }),
+                ]),
+                el('p', { className: 'mascot-world', textContent: character.cvStyle }),
+                el('p', { className: 'mascot-line', textContent: character.catchphrase }),
+                button(mascotPickLabel(current), () => {
+                  if (isCurrentMascot(character.id)) return;
+                  state = saveState({ ...state, mascotId: character.id, mascotHidden: false });
+                  speech = character.catchphrase;
+                  render();
+                  shell.querySelector(`[data-pick="${character.id}"]`)?.focus({ preventScroll: true });
+                }, { className: 'mascot-pick', 'data-pick': character.id, 'aria-disabled': String(current) }),
               ]),
             ]);
           })),
