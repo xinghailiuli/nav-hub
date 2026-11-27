@@ -23,7 +23,7 @@ const DEFAULT_VISUAL_PREFERENCES = {
   customWallpaper: "",
 };
 const VALID_MASCOT_IDS = new Set([
-  "auto", "sena", "sakura", "gemini", "claude", "deepseek", "gpt", "qwen", "kimi", "glm", "grok", "doubao",
+  "auto", "gemini", "claude", "deepseek", "gpt", "qwen", "kimi", "glm", "grok", "doubao",
 ]);
 const LEGACY_SEARCH_TEMPLATES = new Map([
   ["baidu", "https://www.baidu.com/s?wd={q}"],

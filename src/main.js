@@ -10,9 +10,8 @@ import {
 import { loadAiRadarCache, fetchLiveAiRadar, formatContextWindow } from './aiRadar.js';
 import snapshot from './data/aiModelsSnapshot.json';
 import {
-  THEME_VISUALS, MASCOTS, THEME_SWITCH_LINES, CATEGORY_LINES, AI_RADAR_SYNC_LINES,
-  HITOKOTO_LIST, CG_ARTWORKS, SITE_ARTWORKS, GALLERY_PET_NOTES, RANDOM_PICK_LINES,
-  HAGEMI_PET, CROSSPET_ROSTER, resolveCrossPet, resolveMascotId, pickGreeting, pickSiteArt,
+  THEME_VISUALS, HITOKOTO_LIST, CG_ARTWORKS, SITE_ARTWORKS, GALLERY_PET_NOTES,
+  RANDOM_PICK_LINES, HAGEMI_PET, CROSSPET_ROSTER, resolveCrossPet, pickSiteArt,
 } from './data/acgDialogues.js';
 
 const root = document.querySelector('#app');
@@ -32,7 +31,6 @@ let radarExpanded = false;
 let radar = loadAiRadarCache() ?? snapshot;
 let syncing = false;
 let petSyncing = false;
-let speech = '';
 let petMood = 'idle';
 let petSpeech = '';
 let petTimer;
@@ -50,11 +48,9 @@ const activeGalleryCg = () => {
   const id = parseBundledWallpaperId(state.customWallpaper);
   return id ? CG_ARTWORKS.find((art) => art.id === id) || null : null;
 };
-const activePet = () => resolveCrossPet(state.mascotId);
-const mascotId = () => resolveMascotId(state.mascotId, state.theme);
-const selectedMascotId = () => activePet()?.id ?? mascotId();
-const isCurrentMascot = (id) => !state.mascotHidden && selectedMascotId() === id;
-const mascotPickLabel = (current, id) => current ? '当前陪伴中' : resolveCrossPet(id) ? '召唤陪伴' : '设为看板娘';
+const activePet = () => resolveCrossPet(state.mascotId) ?? CROSSPET_ROSTER.gemini;
+const isCurrentMascot = (id) => !state.mascotHidden && activePet().id === id;
+const mascotPickLabel = (current) => current ? '当前陪伴中' : '召唤陪伴';
 const pickLine = (lines) => lines[Math.floor(Math.random() * lines.length)];
 function setPetMood(mood, line = '', duration = 0) {
   clearTimeout(petTimer);
@@ -79,21 +75,19 @@ function setPetMood(mood, line = '', duration = 0) {
 }
 function restPet(searchFocused = document.activeElement?.id === 'global-search-input') {
   const pet = activePet();
-  if (pet && searchFocused) setPetMood('searching', pet.search);
-  else if (pet && petSyncing) setPetMood('thinking', pet.syncing);
-  else setPetMood('idle', pet ? pickLine(pet.idle) : '');
+  if (searchFocused) setPetMood('searching', pet.search);
+  else if (petSyncing) setPetMood('thinking', pet.syncing);
+  else setPetMood('idle', pickLine(pet.idle));
 }
 function resetPetMood() {
   clearTimeout(petTimer);
   petMood = 'idle';
   petSpeech = '';
 }
-function speak(line) { speech = line || ''; const bubble = document.querySelector('#mascot-speech'); if (bubble) bubble.textContent = speech; }
 function chooseTheme(id) {
   state = saveState({ ...state, theme: id, customWallpaper: '' });
   const pet = activePet();
-  if (pet) setPetMood('idle', pet.id === 'gemini' ? HAGEMI_PET.theme[id] : pickLine(pet.idle));
-  else speech = THEME_SWITCH_LINES[id]?.[mascotId()] || '';
+  setPetMood('idle', pet.id === 'gemini' ? HAGEMI_PET.theme[id] : pickLine(pet.idle));
   render();
 }
 function picture(webp, fallback, width, height, alt = '', pictureAttrs = {}, imageAttrs = {}) {
@@ -584,10 +578,7 @@ async function sync(event) {
   clearTimeout(initialSync);
   syncing = true;
   petSyncing = Boolean(event);
-  const pet = activePet();
-  if (pet) {
-    if (petSyncing) setPetMood('thinking', pet.syncing);
-  } else speak(AI_RADAR_SYNC_LINES.syncing[mascotId()]);
+  if (petSyncing) setPetMood('thinking', activePet().syncing);
   renderAiRadarSection();
   try {
     fallbackKind = loadAiRadarCache() ? '缓存' : '快照';
@@ -599,10 +590,8 @@ async function sync(event) {
     const showPetResult = petSyncing;
     petSyncing = false;
     const currentPet = activePet();
-    if (currentPet) {
-      const mode = radar.syncMode === 'partial-live' ? 'partialLive' : radar.syncMode;
-      if (showPetResult) setPetMood('happy', currentPet[mode] || currentPet.snapshot, 2000);
-    } else speak(AI_RADAR_SYNC_LINES[radar.syncMode]?.[mascotId()]);
+    const mode = radar.syncMode === 'partial-live' ? 'partialLive' : radar.syncMode;
+    if (showPetResult) setPetMood('happy', currentPet[mode] || currentPet.snapshot, 2000);
     renderAiRadarSection();
   }
 }
@@ -836,7 +825,6 @@ function topbarTools(file) {
           button('取消', () => d.close(), { autofocus: true }),
           button('恢复默认', () => {
             state = saveState(createDefaultState());
-            speech = '';
             resetPetMood();
             category = '全部';
             query = '';
@@ -893,14 +881,11 @@ function summonLabel(character) {
 }
 
 function summonPet(id) {
-  const pet = resolveCrossPet(id);
-  state = saveState({ ...state, mascotId: id, mascotHidden: false });
+  const pet = resolveCrossPet(id) ?? CROSSPET_ROSTER.gemini;
+  state = saveState({ ...state, mascotId: pet.id, mascotHidden: false });
   resetPetMood();
-  if (pet) {
-    petMood = 'happy';
-    petSpeech = pet.greeting;
-  }
-  speech = pet ? '' : MASCOTS[id].catchphrase;
+  petMood = 'happy';
+  petSpeech = pet.greeting;
   closePetSwitcher();
   const previous = shell.querySelector('#mascot-panel');
   const outgoing = previous.hidden ? null : previous.querySelector('.mascot-art').firstElementChild;
@@ -919,7 +904,7 @@ function summonPet(id) {
       fade.finished.finally(() => outgoing.remove()).catch(() => {});
     }
   }
-  if (pet) petTimer = setTimeout(restPet, 1600);
+  petTimer = setTimeout(restPet, 1600);
 }
 
 function setPetSwitcherOpen(menu, open) {
@@ -947,29 +932,27 @@ function mascotControl(id, label, icon, action) {
   ]);
 }
 
-function petSwitcher(pet, mascot) {
-  const current = pet ?? mascot;
+function petSwitcher(pet) {
   const trigger = el('button', {
     id: 'pet-switcher-trigger', type: 'button', popovertarget: 'pet-switcher-menu',
     'aria-haspopup': 'menu', 'aria-controls': 'pet-switcher-menu', 'aria-expanded': 'false',
-    'aria-label': `选桌宠，当前为 ${current.name}`, title: '选桌宠',
+    'aria-label': `选桌宠，当前为 ${pet.name}`, title: '选桌宠',
   }, [
-    pet ? petThumbnail(pet, 24) : el('img', { src: mascot.avatarWebp, width: 24, height: 24, alt: '' }),
-    el('span', { className: 'pet-control-label pet-trigger-name', textContent: pet?.shortName ?? mascot.name }),
+    petThumbnail(pet, 24),
+    el('span', { className: 'pet-control-label pet-trigger-name', textContent: pet.shortName }),
     el('span', { className: 'pet-control-label', 'aria-hidden': 'true', textContent: '▾' }),
   ]);
-  const option = (character, crossPet) => el('button', {
+  const option = (character) => el('button', {
     type: 'button', role: 'menuitemradio', tabindex: -1, 'data-pick': character.id,
-    'aria-checked': String(character.id === current.id), 'aria-label': summonLabel(character),
-    title: character.name, autofocus: character.id === current.id,
+    'aria-checked': String(character.id === pet.id), 'aria-label': summonLabel(character),
+    title: character.name, autofocus: character.id === pet.id,
     onClick: () => {
       summonPet(character.id);
       shell.querySelector('#pet-switcher-trigger').focus({ preventScroll: true });
     },
-  }, crossPet ? [petThumbnail(character, 36), el('span', { className: 'pet-opt-label', textContent: character.shortName })] : [character.name]);
+  }, [petThumbnail(character, 36), el('span', { className: 'pet-opt-label', textContent: character.shortName })]);
   const group = el('div', { role: 'menu', 'aria-label': '选桌宠', focusgroup: 'menu nomemory' }, [
-    el('div', { className: 'pet-switcher-grid', role: 'presentation' }, crossPets.map((character) => option(character, true))),
-    el('div', { className: 'pet-switcher-legacy', role: 'presentation' }, Object.values(MASCOTS).map((character) => option(character, false))),
+    el('div', { className: 'pet-switcher-grid', role: 'presentation' }, crossPets.map(option)),
   ]);
   const items = [...group.querySelectorAll('button')];
   const selected = group.querySelector('[aria-checked=true]');
@@ -984,8 +967,8 @@ function petSwitcher(pet, mascot) {
       const next = {
         ArrowLeft: (i - 1 + items.length) % items.length,
         ArrowRight: (i + 1) % items.length,
-        ArrowUp: i < 3 ? crossPets.length + Math.min(i, 1) : i - 3,
-        ArrowDown: i >= crossPets.length ? i - crossPets.length : Math.min(i + 3, items.length - 1),
+        ArrowUp: (i - 3 + items.length) % items.length,
+        ArrowDown: (i + 3) % items.length,
         Home: 0,
         End: items.length - 1,
       }[event.key];
@@ -1016,39 +999,32 @@ function petSwitcher(pet, mascot) {
 
 function mascotPanel() {
   const pet = activePet();
-  const mascot = MASCOTS[mascotId()];
-  const name = pet ? pet.name + ' · ' + pet.title : mascot.name + ' · ' + (mascot.id === 'sena' ? '星穹姬' : '昼樱姬');
+  const name = pet.name + ' · ' + pet.title;
   const portrait = el('button', {
-    type: 'button', className: pet && petMood === 'idle' ? 'mascot-art is-idle' : 'mascot-art',
-    'aria-label': `戳一戳${(pet ?? mascot).name}`,
-    onClick: () => {
-      if (pet) setPetMood('surprised', pickLine(pet.poke), 1200);
-      else speak(pickLine(mascot.greetings.poke));
-    },
-  }, [pet ? petPortrait(pet, petMood) : picture(mascot.avatarWebp, mascot.avatarJpg, 240, 320, '', { className: 'legacy-portrait' })]);
+    type: 'button', className: petMood === 'idle' ? 'mascot-art is-idle' : 'mascot-art',
+    'aria-label': `戳一戳${pet.name}`,
+    onClick: () => setPetMood('surprised', pickLine(pet.poke), 1200),
+  }, [petPortrait(pet, petMood)]);
   const bubble = el('p', {
     id: 'mascot-speech', className: 'speech', 'aria-live': 'polite',
-    textContent: pet ? petSpeech || pet.greeting : speech || pickGreeting(mascot.id, new Date().getHours()),
+    textContent: petSpeech || pet.greeting,
   });
   return el('aside', {
-    id: 'mascot-panel', className: pet ? 'mascot-stage is-pet' : 'mascot-stage', hidden: state.mascotHidden,
-    style: `--pet-glow:${(pet ?? mascot).accent}`,
+    id: 'mascot-panel', className: 'mascot-stage is-pet', hidden: state.mascotHidden,
+    style: `--pet-glow:${pet.accent}`,
   }, [
     portrait,
     el('div', { className: 'mascot-dialogue' }, [
       el('span', { className: 'mascot-name', textContent: name }),
       el('div', { className: 'pet-bubble' }, [bubble]),
       el('div', { className: 'mascot-controls' }, [
-        mascotControl('pet-pat', '摸摸头', '✋', () => {
-          if (pet) setPetMood('pat', pickLine(pet.pat), 2000);
-          else speak(pickLine(mascot.greetings.poke));
-        }),
+        mascotControl('pet-pat', '摸摸头', '✋', () => setPetMood('pat', pickLine(pet.pat), 2000)),
         mascotControl('pet-next', '换一只', '🎲', () => {
           const index = crossPets.indexOf(pet);
           summonPet(crossPets[(index + 1) % crossPets.length].id);
           shell.querySelector('#pet-next').focus({ preventScroll: true });
         }),
-        ...petSwitcher(pet, mascot),
+        ...petSwitcher(pet),
         mascotControl('pet-hide', '暂别', '✕', () => {
           setMascotHidden(true);
           shell.querySelector('.recall').focus({ preventScroll: true });
@@ -1060,7 +1036,7 @@ function mascotPanel() {
 
 function mascotProfileButton(id) {
   const current = isCurrentMascot(id);
-  return button(mascotPickLabel(current, id), (event) => {
+  return button(mascotPickLabel(current), (event) => {
     const card = event.currentTarget.closest('figure');
     summonPet(id);
     card.focus({ preventScroll: true });
@@ -1073,38 +1049,20 @@ function mascotGallery() {
       el('h2', { id: 'mascot-gallery-title', className: 'section-title', textContent: '桌宠伙伴 · CrossPet 图鉴' }),
       el('span', { textContent: '轻点召唤到首页右下角陪伴' }),
     ]),
-    el('div', { className: 'mascot-gallery' }, [
-      ...crossPets.map((pet) => el('figure', {
-        className: 'pet-profile', tabindex: -1, 'aria-labelledby': `pet-name-${pet.id}`,
-        style: `--pet-accent:${pet.accent}`,
-      }, [
-        petThumbnail(pet, 72),
-        el('figcaption', { className: 'mascot-info' }, [
-          el('div', { className: 'mascot-title-row' }, [
-            el('strong', { id: `pet-name-${pet.id}`, textContent: pet.name }),
-            el('small', { textContent: pet.title }),
-          ]),
-          el('p', { className: 'mascot-line', textContent: pet.greeting }),
-          mascotProfileButton(pet.id),
+    el('div', { className: 'mascot-gallery' }, crossPets.map((pet) => el('figure', {
+      className: 'pet-profile', tabindex: -1, 'aria-labelledby': `pet-name-${pet.id}`,
+      style: `--pet-accent:${pet.accent}`,
+    }, [
+      petThumbnail(pet, 72),
+      el('figcaption', { className: 'mascot-info' }, [
+        el('div', { className: 'mascot-title-row' }, [
+          el('strong', { id: `pet-name-${pet.id}`, textContent: pet.name }),
+          el('small', { textContent: pet.title }),
         ]),
-      ])),
-      el('div', { className: 'mascot-duo' }, Object.values(MASCOTS).map((character) =>
-        el('figure', { className: 'mascot-card', tabindex: -1, 'aria-labelledby': `pet-name-${character.id}` }, [
-          el('div', { className: 'mascot-frame' }, [
-            picture(character.avatarWebp, character.avatarJpg, 960, 540, '', {}, { loading: 'lazy' }),
-          ]),
-          el('figcaption', { className: 'mascot-info' }, [
-            el('div', { className: 'mascot-title-row' }, [
-              el('strong', { id: `pet-name-${character.id}`, textContent: character.name }),
-              el('small', { textContent: character.title }),
-            ]),
-            el('p', { className: 'mascot-world', textContent: character.cvStyle }),
-            el('p', { className: 'mascot-line', textContent: character.catchphrase }),
-            mascotProfileButton(character.id),
-          ]),
-        ]),
-      )),
-    ]),
+        el('p', { className: 'mascot-line', textContent: pet.greeting }),
+        mascotProfileButton(pet.id),
+      ]),
+    ]))),
   ]);
 }
 
@@ -1114,15 +1072,12 @@ function openCgLightbox(index, trigger) {
   const title = el('h2', { id: 'cg-lightbox-title' });
   const subtitle = el('p');
   const pet = activePet();
-  const mascot = MASCOTS[mascotId()];
   const noteText = el('span', { id: 'lightbox-pet-note' });
   const lightboxStatus = el('p', {
     id: 'lightbox-status', className: 'sr-only',
     role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true',
   });
-  const petThumb = pet
-    ? petThumbnail(pet, 32)
-    : el('img', { src: mascot.avatarWebp, width: 32, height: 32, alt: '' });
+  const petThumb = petThumbnail(pet, 32);
   const petStrip = el('div', { className: 'lightbox-pet' }, [petThumb, noteText]);
   const wallBtn = button('设为首屏壁纸', () => {
     const art = CG_ARTWORKS[index];
@@ -1130,21 +1085,18 @@ function openCgLightbox(index, trigger) {
     state = saveState({ ...state, customWallpaper: alreadyActive ? '' : `cg:${art.id}` });
     syncWallpaperUi();
     updateWallBtn(art);
-    const note = GALLERY_PET_NOTES[art.id];
     if (alreadyActive) {
       lightboxStatus.textContent = '已恢复当前主题默认壁纸';
       toast('已恢复当前主题默认壁纸');
-      const resetLine = pet ? '已切回主题默认背景喵～' : '已还原当前主题默认背景。';
+      const resetLine = '已切回主题默认背景喵～';
       noteText.textContent = resetLine;
-      if (pet) setPetMood('happy', resetLine, 2200);
-      else speak(resetLine);
+      setPetMood('happy', resetLine, 2200);
     } else {
       lightboxStatus.textContent = `已将《${art.title}》设为首屏壁纸`;
       toast(`已将《${art.title}》设为首屏壁纸`);
-      const setLine = pet ? (note?.pet || '新壁纸换好啦喵！') : (note?.classic || `已设为《${art.title}》主题背景。`);
+      const setLine = GALLERY_PET_NOTES[art.id] || '新壁纸换好啦喵！';
       noteText.textContent = setLine;
-      if (pet) setPetMood('happy', setLine, 2600);
-      else speak(setLine);
+      setPetMood('happy', setLine, 2600);
     }
     wallBtn.focus({ preventScroll: true });
   }, { id: 'btn-cg-set-wallpaper', 'aria-pressed': 'false' });
@@ -1161,11 +1113,9 @@ function openCgLightbox(index, trigger) {
     title.textContent = art.title;
     subtitle.textContent = art.subtitle;
     updateWallBtn(art);
-    const note = GALLERY_PET_NOTES[art.id];
-    const line = pet ? (note?.pet || pet.greeting) : (note?.classic || art.subtitle);
+    const line = GALLERY_PET_NOTES[art.id] || pet.greeting;
     noteText.textContent = line;
-    if (pet) setPetMood('happy', line, 2600);
-    else speak(line);
+    setPetMood('happy', line, 2600);
   };
   d.append(view, lightboxStatus, el('div', { className: 'lightbox-bar' }, [
     el('div', { 'aria-live': 'polite' }, [title, subtitle]),
@@ -1415,9 +1365,7 @@ function recommendRandomSite() {
   }
   if (statusEl) statusEl.textContent = `今日推荐 · ${picked.name}`;
   toast(`🎲 今日推荐：${picked.name}`);
-  const pet = activePet();
-  if (pet) setPetMood('happy', pickLine(RANDOM_PICK_LINES.pet), 2600);
-  else speak(pickLine(RANDOM_PICK_LINES.classic));
+  setPetMood('happy', pickLine(RANDOM_PICK_LINES), 2600);
   spotlightTimer = setTimeout(() => {
     targetCard?.classList.remove('is-spotlight');
     if (spotlightSiteId === picked.id) spotlightSiteId = null;
@@ -1459,7 +1407,6 @@ function render() {
       event.target.value = '';
       if (!selected) return;
       state = saveState(importStateJson(state, await selected.text()));
-      speech = '';
       resetPetMood();
       render();
       document.querySelector('#topbar-tools-trigger')?.focus({ preventScroll: true });
@@ -1525,8 +1472,7 @@ function render() {
           chips(['全部', ...listCategories(state.sites)], category, (item) => {
             category = item;
             const pet = activePet();
-            if (pet) setPetMood('idle', pet.id === 'gemini' ? HAGEMI_PET.category[item] ?? HAGEMI_PET.category['全部'] : pickLine(pet.idle));
-            else speak(CATEGORY_LINES[item]?.[mascotId()]);
+            setPetMood('idle', pet.id === 'gemini' ? HAGEMI_PET.category[item] ?? HAGEMI_PET.category['全部'] : pickLine(pet.idle));
             render();
           }),
           el('div', { id: 'results', className: 'grid' }),

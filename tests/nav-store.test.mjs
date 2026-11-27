@@ -33,7 +33,7 @@ import {
   updateSite,
   validateSiteDraft,
 } from "../src/store.js";
-import { CG_ARTWORKS, CROSSPET_ROSTER, GALLERY_PET_NOTES, HAGEMI_PET, MASCOTS, RANDOM_PICK_LINES, SITE_ARTWORKS, THEME_VISUALS, pickGreeting, pickSiteArt, resolveCrossPet, resolveMascotId } from "../src/data/acgDialogues.js";
+import { CG_ARTWORKS, CROSSPET_ROSTER, GALLERY_PET_NOTES, HAGEMI_PET, RANDOM_PICK_LINES, SITE_ARTWORKS, THEME_VISUALS, pickSiteArt, resolveCrossPet } from "../src/data/acgDialogues.js";
 import { DEFAULT_CATEGORIES, DEFAULT_SEARCH_ENGINES, DEFAULT_SITES } from "../src/data/defaultSites.js";
 import { AI_PROVIDER_SPECS } from "../src/aiRadar.js";
 
@@ -98,8 +98,10 @@ test("CrossPet selections survive sanitization, storage, and backup roundtrips",
   const defaults = createDefaultState();
   assert.deepEqual(sanitizeVisualPreferences(), defaultVisualPreferences);
   for (const [mascotId, expected] of [
-    ...["auto", "sena", "sakura"].map((id) => [id, id]),
+    ["auto", "auto"],
     ...Object.keys(crossPetVendors).map((id) => [id, id]),
+    ["sena", "auto"],
+    ["sakura", "auto"],
     ["invalid", "auto"],
     ["constructor", "auto"],
   ]) {
@@ -150,11 +152,7 @@ test("all four themes meet AA contrast for mascot text and active profile button
 
 test("ACG artwork uses relative WebP and JPG paths backed by public files", async () => {
   assert.deepEqual(Object.keys(THEME_VISUALS), THEMES.map(({ id }) => id));
-  assert.deepEqual(Object.keys(MASCOTS), ["sena", "sakura"]);
-  const artworkPairs = [
-    ...Object.values(THEME_VISUALS).map(({ bgWebp, bgJpg }) => [bgWebp, bgJpg]),
-    ...Object.values(MASCOTS).map(({ avatarWebp, avatarJpg }) => [avatarWebp, avatarJpg]),
-  ];
+  const artworkPairs = Object.values(THEME_VISUALS).map(({ bgWebp, bgJpg }) => [bgWebp, bgJpg]);
   const publicDirectory = new URL("../public/", import.meta.url);
   await Promise.all(artworkPairs.map(async ([webp, jpg]) => {
     assert.match(webp, /^\.\/art\/[\w-]+\.webp$/);
@@ -253,28 +251,6 @@ test("custom sites cycle through all 25 artworks before repeating", () => {
   assert.equal(pickSiteArt({ id: "constructor" }, 0), selected[0]);
 });
 
-test("mascot selection follows theme defaults and greetings follow hour boundaries", () => {
-  for (const [theme, expected] of [
-    ["starlight", "sena"], ["sakura", "sakura"], ["akiba", "sena"], ["miku", "sakura"],
-  ]) {
-    assert.equal(resolveMascotId("auto", theme), expected);
-    assert.equal(resolveMascotId("invalid", theme), expected);
-    assert.equal(resolveMascotId("sena", theme), "sena");
-    assert.equal(resolveMascotId("sakura", theme), "sakura");
-  }
-  assert.equal(resolveMascotId("auto", "unknown"), "sena");
-
-  for (const { id, greetings } of Object.values(MASCOTS)) {
-    assert.equal(pickGreeting(id), greetings.default);
-    for (const [hour, period] of [
-      [0, "night"], [4, "night"], [5, "morning"], [11, "morning"], [12, "afternoon"],
-      [18, "afternoon"], [19, "night"], [23, "night"],
-    ]) {
-      assert.equal(pickGreeting(id, hour), greetings[period]);
-    }
-  }
-});
-
 test("normalizeUrl auto-prepends https and blocks unsafe protocols", () => {
   assert.equal(normalizeUrl("bilibili.com"), "https://bilibili.com/");
   assert.equal(normalizeUrl("http://localhost:3000/test"), "http://localhost:3000/test");
@@ -354,7 +330,7 @@ test("visual preferences persist through storage and strict backup roundtrips", 
   const storage = makeMemoryStorage();
   const rawWallpaper = "  cdn.example.com/images/wallpaper.webp?size=large&utm_source=test  ";
   const customWallpaper = "https://cdn.example.com/images/wallpaper.webp?size=large";
-  const modified = { ...base, mascotId: "sakura", mascotHidden: true, backdropMode: "vivid", customWallpaper };
+  const modified = { ...base, mascotId: "claude", mascotHidden: true, backdropMode: "vivid", customWallpaper };
 
   assert.equal(sanitizeCustomWallpaperInput(" \t "), "");
   assert.equal(sanitizeCustomWallpaperInput(rawWallpaper), customWallpaper);
@@ -375,7 +351,7 @@ test("invalid visual preferences fall back safely without losing other settings"
   const invalid = {
     ...base, mascotId: "unknown", mascotHidden: "true", backdropMode: "unknown", customWallpaper: false,
   };
-  const current = { ...base, theme: "akiba", mascotId: "sena", mascotHidden: true, backdropMode: "vivid" };
+  const current = { ...base, theme: "akiba", mascotId: "deepseek", mascotHidden: true, backdropMode: "vivid" };
   assert.throws(() => sanitizeCustomWallpaperInput(false), /壁纸网址/);
   for (const wallpaper of [
     "javascript:alert(1)", "data:image/svg+xml,unsafe", "file:///wallpaper.jpg",
@@ -673,10 +649,9 @@ test("bundled CG wallpaper tokens validate strictly, persist safely, and sync wi
     assert.equal(art.thumbWebp, `./art/${art.id}-thumb.webp`);
     const file = await stat(new URL(art.thumbWebp, publicDirectory));
     assert.ok(file.isFile() && file.size > 1000, art.thumbWebp);
-    assert.ok(typeof GALLERY_PET_NOTES[art.id]?.pet === "string" && GALLERY_PET_NOTES[art.id].pet.trim());
-    assert.ok(typeof GALLERY_PET_NOTES[art.id]?.classic === "string" && GALLERY_PET_NOTES[art.id].classic.trim());
+    assert.ok(typeof GALLERY_PET_NOTES[art.id] === "string" && GALLERY_PET_NOTES[art.id].trim());
   }
-  assert.ok(RANDOM_PICK_LINES.pet.length >= 4 && RANDOM_PICK_LINES.classic.length >= 4);
+  assert.ok(Array.isArray(RANDOM_PICK_LINES) && RANDOM_PICK_LINES.length >= 4);
 });
 
 test("search suggestions cap matches cleanly and random picker avoids repeats when alternatives exist", () => {
