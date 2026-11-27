@@ -4,18 +4,24 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
   addSite,
+  BUNDLED_CG_IDS,
   buildSearchUrl,
+  buildSearchSuggestions,
   createDefaultState,
   deleteSite,
   exportStateJson,
   filterSites,
   importStateJson,
+  isBundledWallpaperToken,
   isSafeHttpUrl,
   extractDomainLabel,
   LEGACY_STORAGE_KEY,
   loadState,
   normalizeUrl,
+  parseBundledWallpaperId,
+  pickRandomSite,
   resolveThemeId,
+  resolveSiteBrandId,
   resolveSiteEmblem,
   sanitizeVisualPreferences,
   sanitizeCustomWallpaperInput,
@@ -27,7 +33,7 @@ import {
   updateSite,
   validateSiteDraft,
 } from "../src/store.js";
-import { CG_ARTWORKS, CROSSPET_ROSTER, HAGEMI_PET, MASCOTS, SITE_ARTWORKS, THEME_VISUALS, pickGreeting, pickSiteArt, resolveCrossPet, resolveMascotId } from "../src/data/acgDialogues.js";
+import { CG_ARTWORKS, CROSSPET_ROSTER, GALLERY_PET_NOTES, HAGEMI_PET, MASCOTS, RANDOM_PICK_LINES, SITE_ARTWORKS, THEME_VISUALS, pickGreeting, pickSiteArt, resolveCrossPet, resolveMascotId } from "../src/data/acgDialogues.js";
 import { DEFAULT_CATEGORIES, DEFAULT_SEARCH_ENGINES, DEFAULT_SITES } from "../src/data/defaultSites.js";
 import { AI_PROVIDER_SPECS } from "../src/aiRadar.js";
 
@@ -596,4 +602,101 @@ test("site emblem resolution matches hostname dynamically for edited, custom, an
     { type: "icon", petId: null, icon: "code" });
   assert.deepEqual(resolveSiteEmblem({ id: "bad", url: "javascript:alert(1)", category: "Galgame 档案" }),
     { type: "icon", petId: null, icon: "galgame" });
+});
+
+test("brand resolver covers 19 host brands safely without spoofing or invalid URLs", () => {
+  const brandCases = [
+    ["https://vndb.org/v1", "vndb"],
+    ["https://www.ymgal.games/ga", "ymgal"],
+    ["https://2dfan.org", "2dfan"],
+    ["https://store.steampowered.com/app/1", "steam"],
+    ["https://bgm.tv", "bangumi"],
+    ["https://www.bilibili.com/anime", "bilibili"],
+    ["https://ani.gamer.com.tw", "gamer"],
+    ["https://myanimelist.net", "mal"],
+    ["https://anilist.co", "anilist"],
+    ["https://www.pixiv.net", "pixiv"],
+    ["https://zh.moegirl.org.cn", "moegirl"],
+    ["https://www.zhihu.com", "zhihu"],
+    ["https://www.canva.cn", "canva"],
+    ["https://www.canva.com", "canva"],
+    ["https://github.com/u/r", "github"],
+    ["https://gist.github.com/u.", "github"],
+    ["https://pages.cloudflare.com", "cloudflare"],
+    ["https://edgeone.ai/products/pages", "edgeone"],
+    ["https://www.deepl.com/translator", "deepl"],
+    ["https://www.notion.so", "notion"],
+    ["https://docs.qq.com", "txdocs"],
+  ];
+  for (const [url, expected] of brandCases) {
+    assert.equal(resolveSiteBrandId({ url }), expected, url);
+  }
+  for (const url of [
+    "https://chat.deepseek.com",
+    "https://chatgpt.com",
+    "https://github.com.example.org",
+    "https://user:pass@github.com",
+    "javascript:alert(1)",
+    "https://unknown-site.example",
+  ]) {
+    assert.equal(resolveSiteBrandId({ url }), null, url);
+  }
+});
+
+test("bundled CG wallpaper tokens validate strictly, persist safely, and sync with index.html", async () => {
+  assert.deepEqual(CG_ARTWORKS.map((art) => art.id), BUNDLED_CG_IDS);
+  const base = createDefaultState();
+  const storage = makeMemoryStorage();
+  for (const art of CG_ARTWORKS) {
+    const token = `cg:${art.id}`;
+    assert.equal(isBundledWallpaperToken(token), true);
+    assert.equal(parseBundledWallpaperId(token), art.id);
+    assert.equal(sanitizeCustomWallpaperInput(token), token);
+    const modified = { ...base, customWallpaper: token };
+    saveState(modified, storage);
+    assert.deepEqual(loadState(storage), modified);
+    assert.deepEqual(importStateJson(base, exportStateJson(modified)), modified);
+  }
+  for (const invalidToken of [
+    " cg:cg-galgame", "cg:cg-galgame ", "CG:cg-galgame", "cg:cg-galgame?x=1",
+    "cg:cg-galgame#top", "cg:unknown", "cg:%63g-galgame",
+  ]) {
+    assert.equal(isBundledWallpaperToken(invalidToken), false, invalidToken);
+    assert.equal(parseBundledWallpaperId(invalidToken), "", invalidToken);
+    assert.throws(() => sanitizeCustomWallpaperInput(invalidToken), /仅支持 http/, invalidToken);
+  }
+
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const publicDirectory = new URL("../public/", import.meta.url);
+  for (const art of CG_ARTWORKS) {
+    assert.ok(html.includes(`"${art.id}"`), `index.html preloader must include ${art.id}`);
+    assert.equal(art.thumbWebp, `./art/${art.id}-thumb.webp`);
+    const file = await stat(new URL(art.thumbWebp, publicDirectory));
+    assert.ok(file.isFile() && file.size > 1000, art.thumbWebp);
+    assert.ok(typeof GALLERY_PET_NOTES[art.id]?.pet === "string" && GALLERY_PET_NOTES[art.id].pet.trim());
+    assert.ok(typeof GALLERY_PET_NOTES[art.id]?.classic === "string" && GALLERY_PET_NOTES[art.id].classic.trim());
+  }
+  assert.ok(RANDOM_PICK_LINES.pet.length >= 4 && RANDOM_PICK_LINES.classic.length >= 4);
+});
+
+test("search suggestions cap matches cleanly and random picker avoids repeats when alternatives exist", () => {
+  const sites = [
+    { id: "s1", name: "Alpha Gal", url: "https://alpha.example", category: "Gal", description: "gal", tags: ["gal"] },
+    { id: "s2", name: "Beta Gal", url: "https://beta.example", category: "Gal", description: "gal", tags: ["gal"] },
+    { id: "s3", name: "Unsafe Gal", url: "javascript:alert(1)", category: "Gal", description: "gal", tags: ["gal"] },
+    ...Array.from({ length: 6 }, (_, i) => ({
+      id: `extra-${i}`, name: `Extra Gal ${i}`, url: `https://extra${i}.example`, category: "Gal", description: "gal", tags: [],
+    })),
+  ];
+  assert.deepEqual(buildSearchSuggestions(sites, "   "), { totalMatches: 0, items: [] });
+  const suggested = buildSearchSuggestions(sites, "gal", 6);
+  assert.equal(suggested.totalMatches, 8);
+  assert.equal(suggested.items.length, 6);
+  assert.ok(suggested.items.every((s) => s.id !== "s3"));
+
+  assert.equal(pickRandomSite([]), null);
+  assert.equal(pickRandomSite([sites[2]]), null);
+  assert.equal(pickRandomSite([sites[0]], "s1", () => 0.9)?.id, "s1");
+  assert.equal(pickRandomSite([sites[0], sites[1]], "s1", () => 0)?.id, "s2");
+  assert.equal(pickRandomSite([sites[0], sites[1]], "s2", () => 0.99)?.id, "s1");
 });

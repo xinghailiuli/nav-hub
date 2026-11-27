@@ -1,5 +1,11 @@
 import { DEFAULT_CATEGORIES, DEFAULT_SEARCH_ENGINES, DEFAULT_SITES } from "./data/defaultSites.js";
 
+export const BUNDLED_CG_IDS = [
+  "cg-galgame", "cg-ymgal", "cg-bangumi", "cg-bili",
+  "cg-pixiv", "cg-moegirl", "cg-nightcafe", "cg-radar",
+];
+const BUNDLED_CG_TOKENS = new Set(BUNDLED_CG_IDS.map((id) => `cg:${id}`));
+
 export const STORAGE_KEY = "navhub.state.v2";
 export const LEGACY_STORAGE_KEY = "navhub.state.v1";
 export const THEMES = [
@@ -62,9 +68,18 @@ export function normalizeUrl(rawInput) {
   return parsed.toString();
 }
 
+export function isBundledWallpaperToken(value) {
+  return typeof value === "string" && BUNDLED_CG_TOKENS.has(value);
+}
+
+export function parseBundledWallpaperId(value) {
+  return isBundledWallpaperToken(value) ? value.slice(3) : "";
+}
+
 export function sanitizeCustomWallpaperInput(raw) {
   if (typeof raw !== "string") throw new Error("请输入有效的壁纸网址");
   if (!raw.trim()) return "";
+  if (isBundledWallpaperToken(raw)) return raw;
   const url = normalizeUrl(raw);
   if (!isSafeHttpUrl(url)) throw new Error("壁纸仅支持 http:// 或 https:// 开头的安全网址");
   return url;
@@ -76,6 +91,43 @@ export function extractDomainLabel(rawUrl) {
   } catch {
     return "";
   }
+}
+
+const BRAND_EXACT_HOSTS = new Map([
+  ["store.steampowered.com", "steam"],
+  ["ani.gamer.com.tw", "gamer"],
+  ["docs.qq.com", "txdocs"],
+]);
+
+const BRAND_DOMAIN_SUFFIXES = [
+  ["vndb.org", "vndb"],
+  ["ymgal.games", "ymgal"],
+  ["2dfan.org", "2dfan"],
+  ["bgm.tv", "bangumi"],
+  ["bilibili.com", "bilibili"],
+  ["myanimelist.net", "mal"],
+  ["anilist.co", "anilist"],
+  ["pixiv.net", "pixiv"],
+  ["moegirl.org.cn", "moegirl"],
+  ["zhihu.com", "zhihu"],
+  ["canva.cn", "canva"],
+  ["canva.com", "canva"],
+  ["github.com", "github"],
+  ["cloudflare.com", "cloudflare"],
+  ["edgeone.ai", "edgeone"],
+  ["deepl.com", "deepl"],
+  ["notion.so", "notion"],
+];
+
+export function resolveSiteBrandId(site) {
+  if (!isSafeHttpUrl(site?.url)) return null;
+  const host = extractDomainLabel(site.url).toLowerCase().replace(/\.+$/, "");
+  if (!host) return null;
+  if (BRAND_EXACT_HOSTS.has(host)) return BRAND_EXACT_HOSTS.get(host);
+  for (const [domain, brandId] of BRAND_DOMAIN_SUFFIXES) {
+    if (host === domain || host.endsWith("." + domain)) return brandId;
+  }
+  return null;
 }
 
 const HOST_PET_RULES = [
@@ -354,6 +406,24 @@ export function filterSites(sites, { category = "全部", query = "" } = {}) {
     return [s.name, s.description, s.category, s.url, ...sanitizeTags(s.tags)]
       .some((value) => typeof value === "string" && value.toLowerCase().includes(q));
   });
+}
+
+export function buildSearchSuggestions(sites, rawQuery, limit = 6) {
+  const q = String(rawQuery ?? "").trim();
+  if (!q) return { totalMatches: 0, items: [] };
+  const matched = filterSites(sites, { category: "全部", query: q }).filter((s) => isSafeHttpUrl(s.url));
+  const cap = Number.isInteger(limit) && limit >= 0 ? limit : 6;
+  return { totalMatches: matched.length, items: matched.slice(0, cap) };
+}
+
+export function pickRandomSite(sites, lastPickedId = null, randFn = Math.random) {
+  const candidates = Array.isArray(sites) ? sites.filter((s) => isSafeHttpUrl(s?.url)) : [];
+  if (candidates.length === 0) return null;
+  const pool = candidates.length > 1
+    ? candidates.filter((s) => s.id !== lastPickedId)
+    : candidates;
+  const index = Math.min(pool.length - 1, Math.max(0, Math.floor(randFn() * pool.length)));
+  return pool[index];
 }
 
 export function buildSearchUrl(engineId, rawQuery) {

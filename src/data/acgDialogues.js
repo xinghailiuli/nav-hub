@@ -217,40 +217,94 @@ export const SITE_ARTWORKS = {
 const siteArtworkPool = Object.values(SITE_ARTWORKS);
 
 // Relative luminance sampled from the original CGs for the daylight reading scrim.
+function cgEntry(id, extra = {}) {
+  return {
+    ...artworkPaths(id),
+    thumbWebp: `./art/${id}-thumb.webp`,
+    ...extra,
+  };
+}
+
 export const CG_ARTWORKS = [
-  {
-    id: "cg-galgame", title: "夏海与入道云的彼岸", subtitle: "《GINKA》· Frontwing", tag: "Frontwing",
-    bgWebp: "./art/cg-galgame.webp", bgJpg: "./art/cg-galgame.jpg", categoryHint: "Galgame 档案",
-    luminance: 0.3845,
-  },
-  {
-    ...artworkPaths("cg-ymgal"), title: "鸟白岛的夏夜", subtitle: "《Summer Pockets》· Key", tag: "Key 社",
-  },
-  {
-    ...artworkPaths("cg-bangumi"), title: "沉没都市的海底微光", subtitle: "《ATRI -My Dear Moments-》· Frontwing × 枕", tag: "枕 × Frontwing",
-  },
-  {
-    ...artworkPaths("cg-bili"), title: "暗夜蓝蝶与星光喫茶", subtitle: "《星光咖啡馆与死神之蝶》· Yuzusoft", tag: "Yuzusoft",
-  },
-  {
-    id: "cg-pixiv", title: "暮色长街构想图", subtitle: "《白日梦的构想图》· Laplacian", tag: "Laplacian",
-    bgWebp: "./art/cg-pixiv.webp", bgJpg: "./art/cg-pixiv.jpg", categoryHint: "二次元插画与社区",
-    luminance: 0.2755,
-  },
-  {
-    ...artworkPaths("cg-moegirl"), title: "花房晨光与花束", subtitle: "《PARQUET》· Yuzusoft SOUR", tag: "Yuzusoft SOUR",
-  },
-  {
-    id: "cg-nightcafe", title: "暗夜银枪的魔女", subtitle: "《魔女的夜宴 Sabbat of the Witch》· Yuzusoft", tag: "Yuzusoft",
-    bgWebp: "./art/cg-nightcafe.webp", bgJpg: "./art/cg-nightcafe.jpg", categoryHint: "动漫追番",
-    luminance: 0.1304,
-  },
-  {
-    id: "cg-radar", title: "冬木圣杯交锋之夜", subtitle: "《Fate/stay night REMASTERED》· TYPE-MOON", tag: "TYPE-MOON",
-    bgWebp: "./art/cg-radar.webp", bgJpg: "./art/cg-radar.jpg", categoryHint: "AI 大模型入口",
-    luminance: 0.0815,
-  },
+  cgEntry("cg-galgame", {
+    title: "夏海与入道云的彼岸", subtitle: "《GINKA》· Frontwing", tag: "Frontwing",
+    categoryHint: "Galgame 档案", luminance: 0.3845,
+  }),
+  cgEntry("cg-ymgal", {
+    title: "鸟白岛的夏夜", subtitle: "《Summer Pockets》· Key", tag: "Key 社",
+  }),
+  cgEntry("cg-bangumi", {
+    title: "沉没都市的海底微光", subtitle: "《ATRI -My Dear Moments-》· Frontwing × 枕", tag: "枕 × Frontwing",
+  }),
+  cgEntry("cg-bili", {
+    title: "暗夜蓝蝶与星光喫茶", subtitle: "《星光咖啡馆与死神之蝶》· Yuzusoft", tag: "Yuzusoft",
+  }),
+  cgEntry("cg-pixiv", {
+    title: "暮色长街构想图", subtitle: "《白日梦的构想图》· Laplacian", tag: "Laplacian",
+    categoryHint: "二次元插画与社区", luminance: 0.2755,
+  }),
+  cgEntry("cg-moegirl", {
+    title: "花房晨光与花束", subtitle: "《PARQUET》· Yuzusoft SOUR", tag: "Yuzusoft SOUR",
+  }),
+  cgEntry("cg-nightcafe", {
+    title: "暗夜银枪的魔女", subtitle: "《魔女的夜宴 Sabbat of the Witch》· Yuzusoft", tag: "Yuzusoft",
+    categoryHint: "动漫追番", luminance: 0.1304,
+  }),
+  cgEntry("cg-radar", {
+    title: "冬木圣杯交锋之夜", subtitle: "《Fate/stay night REMASTERED》· TYPE-MOON", tag: "TYPE-MOON",
+    categoryHint: "AI 大模型入口", luminance: 0.0815,
+  }),
 ];
+
+export const GALLERY_PET_NOTES = {
+  "cg-galgame": {
+    pet: "海风和积雨云亮堂堂的，换这张！",
+    classic: "盛夏积雨云与海风，像回到最初的岛屿。",
+  },
+  "cg-ymgal": {
+    pet: "夏夜萤火虫飘起来了，盯住别眨眼喵~",
+    classic: "鸟白岛的夏夜很安静，正适合慢慢回味。",
+  },
+  "cg-bangumi": {
+    pet: "海底也在发光耶，亚托莉可是高性能的！",
+    classic: "沉入蔚蓝的微光里，连时间都慢了下来。",
+  },
+  "cg-bili": {
+    pet: "深夜咖啡馆开门啦，要加双份方糖吗？",
+    classic: "星光下的喫茶店，今晚就点一杯热拿铁吧。",
+  },
+  "cg-pixiv": {
+    pet: "橘色晚霞铺满整条街，发呆也算正经事~",
+    classic: "黄昏长街的余晖，藏着画师未说完的梦。",
+  },
+  "cg-moegirl": {
+    pet: "花房里香香的，小心别把花瓣碰掉啦！",
+    classic: "晨光洒进玻璃花房，连呼吸都变得轻快了。",
+  },
+  "cg-nightcafe": {
+    pet: "银枪闪了一下！宁宁的夜宴要开场咯~",
+    classic: "月色与银枪交错，今夜的魔女格外耀眼呢。",
+  },
+  "cg-radar": {
+    pet: "剑光好燃！今天也在冬木街头守夜吗？",
+    classic: "冬木夜空的星火未熄，命运的夜战才刚开始。",
+  },
+};
+
+export const RANDOM_PICK_LINES = {
+  pet: [
+    "闭眼拍爪！今天就去逛这个站点吧喵~",
+    "转盘停稳啦，替你抽中了一枚好去处！",
+    "雷达嘀嘀响——就决定点开这家逛逛了！",
+    "随机传送门展开，快上车别掉队喵！",
+  ],
+  classic: [
+    "星图随机跳点锁定，看看这次遇见什么吧。",
+    "随手翻开一页坐标，说不定刚好合你心意♪",
+    "命运骰子落定啦，去这个站点打个卡吧~",
+    "今天换个路线逛逛，推开这扇门试试看？",
+  ],
+};
 
 const cardPositions = ["82% 20%", "72% 50%", "88% 80%"];
 

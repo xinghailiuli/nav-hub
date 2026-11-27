@@ -40,9 +40,10 @@
 <body>
   <div id="backdrop-stage" class="backdrop-stage" aria-hidden="true">
     <picture id="backdrop-picture">
-      <source id="backdrop-webp" type="image/webp" srcset="./art/bg-starlight.webp">
-      <img id="backdrop-img" class="backdrop-img" src="./art/bg-starlight.jpg" width="1376" height="768" fetchpriority="high" decoding="async" alt="">
+      <source id="backdrop-webp" type="image/webp" srcset="">
+      <img id="backdrop-img" class="backdrop-img" src="" width="1376" height="768" fetchpriority="high" decoding="async" alt="">
     </picture>
+    <noscript><style>#backdrop-picture{display:none}</style><img class="backdrop-img" src="./art/bg-starlight.jpg" width="1376" height="768" alt=""></noscript>
     <div class="backdrop-scrim"></div>
   </div>
   <script>
@@ -50,26 +51,34 @@
   const read = key => { try { const value = JSON.parse(localStorage.getItem(key)); return Array.isArray(value?.sites) ? value : null; } catch { return null; } };
   const state = read("navhub.state.v2") ?? read("navhub.state.v1");
   const base = "./art/bg-" + document.documentElement.dataset.theme;
+  const BUNDLED_CG_IDS = new Set([
+    "cg-galgame", "cg-ymgal", "cg-bangumi", "cg-bili",
+    "cg-pixiv", "cg-moegirl", "cg-nightcafe", "cg-radar",
+  ]);
   const raw = state?.customWallpaper;
-  let wallpaper = "";
-  if (typeof raw === "string" && /^https?:\/\/[^/\s?#\\]/i.test(raw) && !/^https?:\/\/[^/?#]*@/i.test(raw) && !/[\u0000-\u0020\u007f\\]/.test(raw)) {
-    try { const url = new URL(raw); if (url.hostname && !url.username && !url.password) wallpaper = url.href; } catch {}
+  let bundledId = "";
+  let externalUrl = "";
+  if (typeof raw === "string") {
+    if (raw.startsWith("cg:") && BUNDLED_CG_IDS.has(raw.slice(3))) {
+      bundledId = raw.slice(3);
+    } else if (/^https?:\/\/[^/\s?#\\]/i.test(raw) && !/^https?:\/\/[^/?#]*@/i.test(raw) && !/[\u0000-\u0020\u007f\\]/.test(raw)) {
+      try { const url = new URL(raw); if (url.hostname && !url.username && !url.password) externalUrl = url.href; } catch {}
+    }
   }
-  if (!wallpaper) {
+  const activeBase = bundledId ? "./art/" + bundledId : base;
+  if (!externalUrl) {
     const preload = document.createElement("link");
     preload.rel = "preload";
     preload.as = "image";
     preload.type = "image/webp";
     preload.setAttribute("fetchpriority", "high");
-    preload.href = base + ".webp";
+    preload.href = activeBase + ".webp";
     document.head.append(preload);
   }
   const stage = document.getElementById("backdrop-stage");
   stage.dataset.backdropMode = state?.backdropMode === "vivid" ? "vivid" : "balanced";
-  if (wallpaper || base !== "./art/bg-starlight") {
-    document.getElementById("backdrop-webp").srcset = wallpaper ? "" : base + ".webp";
-    document.getElementById("backdrop-img").src = wallpaper || base + ".jpg";
-  }
+  document.getElementById("backdrop-webp").srcset = externalUrl ? "" : activeBase + ".webp";
+  document.getElementById("backdrop-img").src = externalUrl || activeBase + ".jpg";
 })();
   </script>
   <div id="app"></div>
