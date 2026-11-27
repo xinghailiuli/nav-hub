@@ -2,7 +2,7 @@ import { DEFAULT_SEARCH_ENGINES } from './data/defaultSites.js';
 import {
   THEMES, loadState, saveState, createDefaultState, addSite, updateSite,
   deleteSite, togglePin, listCategories, filterSites, buildSearchUrl,
-  exportStateJson, importStateJson, isSafeHttpUrl, sanitizeCustomWallpaperInput,
+  exportStateJson, importStateJson, isSafeHttpUrl, sanitizeCustomWallpaperInput, extractDomainLabel,
 } from './store.js';
 import { loadAiRadarCache, fetchLiveAiRadar, formatContextWindow } from './aiRadar.js';
 import snapshot from './data/aiModelsSnapshot.json';
@@ -192,8 +192,101 @@ function apply() {
   document.querySelector('meta[name="color-scheme"]').content = theme.colorScheme;
   document.querySelector('#meta-theme-color').content = theme.themeColor;
 }
-function card(site, index) {
-  const art = pickSiteArt(site, index);
+const SITE_PET_MATCH = {
+  'site-deepseek': 'deepseek',
+  'site-chatgpt': 'gpt',
+  'site-claude': 'claude',
+  'site-gemini': 'gemini',
+  'site-kimi': 'kimi',
+  'site-tongyi': 'qwen',
+};
+
+const EMBLEM_PATHS = {
+  galgame: 'M4 5.5A2.5 2.5 0 0 1 6.5 3H19v16.5H6.5A2.5 2.5 0 0 0 4 22V5.5Zm2.5 11.5H17M8 7.5h6',
+  anime: 'M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11Zm6 2.7 5.2 2.8-5.2 2.8V9.2Z',
+  art: 'M12 3a9 9 0 0 0 0 18h1.2a2.2 2.2 0 0 0 2.1-2.8 1.9 1.9 0 0 1 1.8-2.4H19a2 2 0 0 0 2-2A9 9 0 0 0 12 3Zm-3.5 6.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm4-2a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm3.5 2.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z',
+  code: 'm8.5 8-4 4 4 4m7-8 4 4-4 4m-2-10-3 12',
+  cloud: 'M7 18h9.5a4 4 0 0 0 .4-7.98A5.5 5.5 0 0 0 6.2 8.7 4 4 0 0 0 7 18Z',
+  translate: 'M4 6h10M9 4v2c0 4.2-2.2 7.5-5 9.2M6.5 9.5c1.2 2.1 2.9 4 4.8 5.2M13.5 20l3.2-9 3.3 9m-5.5-3h4.5',
+  docs: 'M7 3h7l4 4v13a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V4.5A1.5 1.5 0 0 1 7.5 3Zm3 7h5m-5 4h5m-5 4h3',
+  ai: 'M12 3 14.3 9.2 20.5 11.5 14.3 13.8 12 20l-2.3-6.2L3.5 11.5l6.2-2.3Z',
+};
+
+function emblemKey(site) {
+  if (site.id === 'site-github') return 'code';
+  if (site.id === 'site-cloudflare' || site.id === 'site-edgeone') return 'cloud';
+  if (site.id === 'site-deepl') return 'translate';
+  if (site.id === 'site-notion' || site.id === 'site-txdocs') return 'docs';
+  if (site.category === 'Galgame 档案') return 'galgame';
+  if (site.category === '动漫追番') return 'anime';
+  if (site.category === '二次元插画与社区') return 'art';
+  if (site.category === 'AI 大模型入口') return 'ai';
+  return 'docs';
+}
+
+function emblemIcon(kind) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  const path = document.createElementNS(SVG_NS, 'path');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '20');
+  svg.setAttribute('height', '20');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.8');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  path.setAttribute('d', EMBLEM_PATHS[kind] || EMBLEM_PATHS.ai);
+  svg.append(path);
+  return svg;
+}
+
+function siteEmblem(site, size = 44) {
+  const petId = SITE_PET_MATCH[site.id];
+  const pet = petId ? CROSSPET_ROSTER[petId] : null;
+  if (pet) {
+    return el('div', { className: 'card-emblem is-pet-emblem', 'aria-hidden': 'true' }, [
+      petThumbnail(pet, size),
+    ]);
+  }
+  return el('div', { className: 'card-emblem', 'aria-hidden': 'true' }, [
+    emblemIcon(emblemKey(site)),
+  ]);
+}
+
+function pinnedTile(site) {
+  const host = extractDomainLabel(site.url);
+  const titleNode = isSafeHttpUrl(site.url)
+    ? el('a', {
+      className: 'card-link',
+      href: site.url,
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      textContent: site.name,
+      title: site.name,
+    })
+    : el('span', { className: 'card-link is-disabled', textContent: site.name, title: site.name });
+  return el('article', {
+    className: 'pinned-tile',
+    style: `--site-accent:${safeAccent(site.accent)}`,
+  }, [
+    siteEmblem(site, 38),
+    el('div', { className: 'pinned-meta' }, [
+      el('h3', { className: 'card-title' }, [titleNode]),
+      el('small', { textContent: host || site.category }),
+    ]),
+    button('★', () => { state = saveState(togglePin(state, site.id)); render(); }, {
+      className: 'fav-btn pinned-unpin',
+      'aria-pressed': 'true',
+      'aria-label': `置顶 ${site.name}`,
+      title: '取消置顶',
+    }),
+  ]);
+}
+
+function card(site) {
+  const host = extractDomainLabel(site.url);
   const titleNode = isSafeHttpUrl(site.url)
     ? el('a', {
       className: 'card-link',
@@ -208,10 +301,15 @@ function card(site, index) {
     className: 'site-card',
     style: `--site-accent:${safeAccent(site.accent)}`,
   }, [
-    picture(art.bgWebp, art.bgJpg, 960, 540, '', { className: 'card-cg', 'aria-hidden': 'true' }, { loading: 'lazy' }),
     el('header', { className: 'card-top' }, [
-      el('h3', { className: 'card-title' }, [titleNode]),
-      el('small', { className: 'card-cat', textContent: site.category, title: site.category }),
+      siteEmblem(site, 44),
+      el('div', { className: 'card-head-text' }, [
+        el('div', { className: 'card-title-row' }, [
+          el('h3', { className: 'card-title' }, [titleNode]),
+          el('small', { className: 'card-cat', textContent: site.category, title: site.category }),
+        ]),
+        el('small', { className: 'card-host', textContent: host || site.url }),
+      ]),
     ]),
     el('p', { className: 'card-desc', textContent: site.description || '点击卡片前往该站点', title: site.description || site.name }),
     el('footer', { className: 'card-foot' }, [
@@ -233,10 +331,7 @@ function card(site, index) {
   ]);
 }
 function siteCards(sites) {
-  const customIndexes = new Map(state.sites
-    .filter(({ id }) => !Object.hasOwn(SITE_ARTWORKS, id))
-    .map(({ id }, index) => [id, index]));
-  return sites.map((site) => card(site, customIndexes.get(site.id)));
+  return sites.map((site) => card(site));
 }
 function dialog(site) {
   const d = el('dialog', { id: 'site-dialog', closedby: 'any', 'aria-labelledby': 'dialog-title' });
@@ -894,7 +989,13 @@ function render() {
       mascotPanel(),
     ])]),
     el('div', { className: 'editorial-content' }, [
-        el('section', {}, [el('h2', { textContent: '常用置顶' }), el('div', { className: 'grid' }, siteCards(state.sites.filter((site) => site.pinned)))]),
+        el('section', {}, [
+          el('div', { className: 'section-head' }, [
+            el('h2', { className: 'section-title', textContent: '常用置顶' }),
+            el('span', { textContent: '高频直达捷径，点击星标可取消置顶' }),
+          ]),
+          el('div', { className: 'pinned-grid' }, state.sites.filter((site) => site.pinned).map(pinnedTile)),
+        ]),
         el('section', {}, [
           el('div', { className: 'section-head' }, [el('h2', { className: 'section-title', textContent: '探索网址库' }), el('span', { id: 'count' })]),
           chips(['全部', ...listCategories(state.sites)], category, (item) => {
@@ -908,23 +1009,16 @@ function render() {
         ]),
         el('section', { className: 'visual-gallery' }, [
           el('div', { className: 'gallery-heading' }, [
-            el('h2', { className: 'section-title', textContent: '世界线 · CG 原画廊' }),
-            el('span', { textContent: '点击切换世界线背景或查看大图原作信息' }),
+            el('h2', { className: 'section-title', textContent: 'Galgame 名作 · 原画廊' }),
+            el('div', { className: 'chips gallery-themes', role: 'group', 'aria-label': '切换首页世界线壁纸' }, THEMES.map((theme) => {
+              const active = theme.id === state.theme;
+              return button(theme.name, () => chooseTheme(theme.id), {
+                className: active ? 'active' : '',
+                'aria-pressed': String(active),
+              });
+            })),
           ]),
-          el('div', { className: 'gallery-grid' }, [...THEMES.map((theme) => {
-            const scene = THEME_VISUALS[theme.id];
-            const active = theme.id === state.theme;
-            return el('button', {
-              type: 'button', className: active ? 'gallery-card active' : 'gallery-card',
-              'aria-pressed': String(active), onClick: () => chooseTheme(theme.id),
-            }, [
-              picture(scene.bgWebp, scene.bgJpg, 1280, 720, '', {}, { loading: 'lazy' }),
-              el('span', { className: 'gallery-caption' }, [
-                el('strong', { textContent: active ? `${theme.name}（当前）` : theme.name }),
-                el('small', { textContent: scene.sceneTitle }),
-              ]),
-            ]);
-          }), ...CG_ARTWORKS.map((art, index) => el('button', {
+          el('div', { className: 'gallery-grid' }, CG_ARTWORKS.map((art, index) => el('button', {
             type: 'button', className: 'gallery-card cg-gallery-card', 'aria-haspopup': 'dialog',
             onClick: (event) => openCgLightbox(index, event.currentTarget),
           }, [
@@ -933,7 +1027,7 @@ function render() {
               el('strong', { textContent: art.title }),
               el('small', { textContent: art.subtitle }),
             ]),
-          ]))]),
+          ]))),
         ]),
         el('section', { id: 'ai-radar-section', className: 'ai-radar-section' }, [
           el('div', { id: 'ai-radar-body' }, aiRadarContent()),
@@ -956,8 +1050,8 @@ function render() {
     input.setSelectionRange(...selection);
   }
   if (themeFocus) {
-    const selected = themeFocus.matches('.theme-group') ? selectedTheme : shell.querySelector('.gallery-card.active');
-    selected.focus({ preventScroll: true });
+    const selected = themeFocus.matches('.theme-group') ? selectedTheme : shell.querySelector('.gallery-themes button.active, .gallery-card.active');
+    selected?.focus({ preventScroll: true });
   }
 }
 function results() {

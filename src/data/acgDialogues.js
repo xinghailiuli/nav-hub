@@ -3,8 +3,8 @@ export const THEME_VISUALS = {
     bgWebp: "./art/bg-starlight.webp",
     bgJpg: "./art/bg-starlight.jpg",
     defaultMascotId: "sena",
-    sceneTitle: "《星光咖啡馆与死神之蝶》· Yuzusoft",
-    tagline: "星空苍穹与蓝蝶微光下的视觉小说索引站",
+    sceneTitle: "《魔法使之夜》· TYPE-MOON",
+    tagline: "新月钟楼与深蓝星幕下的魔术幻想夜",
   },
   sakura: {
     bgWebp: "./art/bg-sakura.webp",
@@ -17,8 +17,8 @@ export const THEME_VISUALS = {
     bgWebp: "./art/bg-akiba.webp",
     bgJpg: "./art/bg-akiba.jpg",
     defaultMascotId: "sena",
-    sceneTitle: "《PARQUET》· Yuzusoft SOUR",
-    tagline: "夜间电车微光与都市霓虹夜航坐标",
+    sceneTitle: "《9-nine-九次九日九重色》· Palette",
+    tagline: "东京高层夜景与夜风阳台的异能序曲",
   },
   miku: {
     bgWebp: "./art/bg-miku.webp",
@@ -224,29 +224,29 @@ export const CG_ARTWORKS = [
     luminance: 0.3845,
   },
   {
-    ...artworkPaths("cg-ymgal"), title: "鸟白岛的夏夜", subtitle: "《Summer Pockets》· Key", tag: "Key 社原画",
+    ...artworkPaths("cg-ymgal"), title: "鸟白岛的夏夜", subtitle: "《Summer Pockets》· Key", tag: "Key 社",
   },
   {
-    ...artworkPaths("cg-bangumi"), title: "沉没都市的海底微光", subtitle: "《ATRI -My Dear Moments-》· Frontwing × 枕", tag: "科幻抒情",
+    ...artworkPaths("cg-bangumi"), title: "沉没都市的海底微光", subtitle: "《ATRI -My Dear Moments-》· Frontwing × 枕", tag: "枕 × Frontwing",
   },
   {
-    ...artworkPaths("cg-bili"), title: "晴空砖道与初夏微风", subtitle: "《PARQUET》· Yuzusoft SOUR", tag: "柚子社清流",
+    ...artworkPaths("cg-bili"), title: "暗夜蓝蝶与星光喫茶", subtitle: "《星光咖啡馆与死神之蝶》· Yuzusoft", tag: "Yuzusoft",
   },
   {
-    id: "cg-pixiv", title: "暮色长街构想图", subtitle: "《白日梦的构想图》· Laplacian", tag: "油画光影风",
+    id: "cg-pixiv", title: "暮色长街构想图", subtitle: "《白日梦的构想图》· Laplacian", tag: "Laplacian",
     bgWebp: "./art/cg-pixiv.webp", bgJpg: "./art/cg-pixiv.jpg", categoryHint: "二次元插画与社区",
     luminance: 0.2755,
   },
   {
-    ...artworkPaths("cg-moegirl"), title: "花房晨光与日常", subtitle: "《PARQUET》· Yuzusoft SOUR", tag: "花店物语",
+    ...artworkPaths("cg-moegirl"), title: "花房晨光与花束", subtitle: "《PARQUET》· Yuzusoft SOUR", tag: "Yuzusoft SOUR",
   },
   {
-    id: "cg-nightcafe", title: "午后喫茶店甜点", subtitle: "《星光咖啡馆与死神之蝶》· Yuzusoft", tag: "喫茶日常",
+    id: "cg-nightcafe", title: "暗夜银枪的魔女", subtitle: "《魔女的夜宴 Sabbat of the Witch》· Yuzusoft", tag: "Yuzusoft",
     bgWebp: "./art/cg-nightcafe.webp", bgJpg: "./art/cg-nightcafe.jpg", categoryHint: "动漫追番",
     luminance: 0.1304,
   },
   {
-    id: "cg-radar", title: "都市夜航观测点", subtitle: "《PARQUET》· Yuzusoft SOUR", tag: "都市夜景",
+    id: "cg-radar", title: "冬木圣杯交锋之夜", subtitle: "《Fate/stay night REMASTERED》· TYPE-MOON", tag: "TYPE-MOON",
     bgWebp: "./art/cg-radar.webp", bgJpg: "./art/cg-radar.jpg", categoryHint: "AI 大模型入口",
     luminance: 0.0815,
   },

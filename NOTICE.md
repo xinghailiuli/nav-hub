@@ -22,14 +22,16 @@ NavHub (`极光导航`) includes code under the repository license and incorpora
 
 ## 2. Official Visual Novel / Game Promotional CGs (`public/art/bg-*.webp/jpg`, `public/art/cg-*.webp/jpg`, `public/art/mascot-*.webp/jpg`)
 
-All background wallpapers, gallery CGs, and site cards use official promotional screenshots obtained from public Steam Store app pages (`store.steampowered.com`) solely for non-commercial navigation preview and visual novel appreciation. Full copyright belongs to each original creator and publisher:
+All background wallpapers and gallery CGs use official promotional screenshots obtained from public Steam Store app pages (`store.steampowered.com`) solely for non-commercial showcase and visual novel appreciation. Full copyright belongs to each original creator and publisher:
 
-- **Yuzusoft / Yuzusoft SOUR** (`喫茶ステラと死神の蝶`, `PARQUET`, `Sabbat of the Witch 魔女的夜宴`)
+- **TYPE-MOON** (`魔法使之夜 / WITCH ON THE HOLY NIGHT`, `Fate/stay night REMASTERED`)
 - **Key / VisualArts** (`Summer Pockets`, `Rewrite+`)
 - **Frontwing** (`GINKA`, published by Frontwing USA / Bushiroad)
 - **Frontwing × Makura (枕)** (`ATRI -My Dear Moments-`)
+- **Yuzusoft / Yuzusoft SOUR** (`喫茶ステラと死神の蝶`, `Sabbat of the Witch 魔女的夜宴`, `PARQUET`)
 - **Palette** (`9-nine-` Episodes 1–3)
 - **SMEE** (`Sugar * Style`, `Making*Lovers`)
 - **Laplacian** (`白日梦的构想图 / Cyanotype Daydream`)
+- **MAGES.** (`CHAOS;CHILD`)
 - **Novectacle** (`The House in Fata Morgana`)
 - **SEGA / Crypton Future Media** (`Hatsune Miku: Project DIVA MEGA39’s＋`)

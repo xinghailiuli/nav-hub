@@ -1,6 +1,6 @@
 {
   "snapshotSource": "build-live",
-  "generatedAt": "2026-11-27T11:56:33.745Z",
+  "generatedAt": "2026-11-27T12:41:18.878Z",
   "syncMode": "snapshot",
   "sourceResults": {
     "openrouter": true,
@@ -304,8 +304,8 @@
           "contextWindow": 1048576,
           "created": 1789021285,
           "pricing": {
-            "prompt": "0.00000014",
-            "completion": "0.00000042"
+            "prompt": "0.0000000507",
+            "completion": "0.0000002028"
           }
         },
         {
