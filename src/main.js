@@ -18,7 +18,6 @@ root.append(shell);
 const backdropStage = document.querySelector('#backdrop-stage');
 const backdropSource = document.querySelector('#backdrop-webp');
 const backdropImage = document.querySelector('#backdrop-img');
-const radarArt = CG_ARTWORKS.find(({ id }) => id === 'cg-radar');
 const crossPets = Object.values(CROSSPET_ROSTER);
 const supportsPopover = 'popover' in HTMLElement.prototype;
 let state = loadState();
@@ -195,21 +194,41 @@ function apply() {
 }
 function card(site, index) {
   const art = pickSiteArt(site, index);
+  const titleNode = isSafeHttpUrl(site.url)
+    ? el('a', {
+      className: 'card-link',
+      href: site.url,
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      textContent: site.name,
+      title: site.name,
+    })
+    : el('span', { className: 'card-link is-disabled', textContent: site.name, title: site.name });
   return el('article', {
     className: 'site-card',
-    style: `--site-accent:${safeAccent(site.accent)};--cg-position:${art.objectPosition}`,
+    style: `--site-accent:${safeAccent(site.accent)}`,
   }, [
     picture(art.bgWebp, art.bgJpg, 960, 540, '', { className: 'card-cg', 'aria-hidden': 'true' }, { loading: 'lazy' }),
-    el('div', { className: 'card-top' }, [
-      el('span', { className: 'avatar', 'aria-hidden': 'true', textContent: site.name.slice(0, 1) }),
-      el('div', { title: site.name }, [link(site.name, site.url), el('small', { textContent: site.category, title: site.category })]),
+    el('header', { className: 'card-top' }, [
+      el('h3', { className: 'card-title' }, [titleNode]),
+      el('small', { className: 'card-cat', textContent: site.category, title: site.category }),
     ]),
-    el('p', { textContent: site.description }),
-    el('div', { className: 'tags' }, (site.tags || []).slice(0, 2).map((tag) => el('span', { className: 'tag-pill', textContent: tag }))),
-    el('div', { className: 'actions' }, [
-      button(site.pinned ? '★' : '☆', () => { state = saveState(togglePin(state, site.id)); render(); }, { 'aria-label': site.pinned ? '取消置顶' : '置顶' }),
-      button('编辑', () => dialog(site)),
-      confirmButton('删除', () => { state = saveState(deleteSite(state, site.id)); render(); toast('网址已删除'); }, { 'aria-label': `删除 ${site.name}` }),
+    el('p', { className: 'card-desc', textContent: site.description || '点击卡片前往该站点', title: site.description || site.name }),
+    el('footer', { className: 'card-foot' }, [
+      el('div', { className: 'tags' }, (site.tags || []).slice(0, 2).map((tag) => el('span', { className: 'tag-pill', textContent: tag }))),
+      el('div', { className: 'actions' }, [
+        button(site.pinned ? '★' : '☆', () => { state = saveState(togglePin(state, site.id)); render(); }, {
+          className: 'fav-btn',
+          'aria-pressed': String(Boolean(site.pinned)),
+          'aria-label': `置顶 ${site.name}`,
+          title: site.pinned ? '取消置顶' : '置顶',
+        }),
+        button('编辑', () => dialog(site), { className: 'edit-btn', 'aria-label': `编辑 ${site.name}` }),
+        confirmButton('删除', () => { state = saveState(deleteSite(state, site.id)); render(); toast('网址已删除'); }, {
+          className: 'del-btn',
+          'aria-label': `删除 ${site.name}`,
+        }),
+      ]),
     ]),
   ]);
 }
@@ -711,13 +730,16 @@ function mascotProfileButton(id) {
 
 function mascotGallery() {
   return el('section', { className: 'mascot-gallery-section', 'aria-labelledby': 'mascot-gallery-title' }, [
-    el('h2', { id: 'mascot-gallery-title', textContent: '全员桌宠 · 萌娘图鉴' }),
+    el('div', { className: 'section-head' }, [
+      el('h2', { id: 'mascot-gallery-title', className: 'section-title', textContent: '桌宠伙伴 · CrossPet 图鉴' }),
+      el('span', { textContent: '轻点召唤到首页右下角陪伴' }),
+    ]),
     el('div', { className: 'mascot-gallery' }, [
       ...crossPets.map((pet) => el('figure', {
         className: 'pet-profile', tabindex: -1, 'aria-labelledby': `pet-name-${pet.id}`,
         style: `--pet-accent:${pet.accent}`,
       }, [
-        petThumbnail(pet, 160),
+        petThumbnail(pet, 72),
         el('figcaption', { className: 'mascot-info' }, [
           el('div', { className: 'mascot-title-row' }, [
             el('strong', { id: `pet-name-${pet.id}`, textContent: pet.name }),
@@ -730,7 +752,7 @@ function mascotGallery() {
       el('div', { className: 'mascot-duo' }, Object.values(MASCOTS).map((character) =>
         el('figure', { className: 'mascot-card', tabindex: -1, 'aria-labelledby': `pet-name-${character.id}` }, [
           el('div', { className: 'mascot-frame' }, [
-            picture(character.avatarWebp, character.avatarJpg, 240, 320, '', {}, { loading: 'lazy' }),
+            picture(character.avatarWebp, character.avatarJpg, 960, 540, '', {}, { loading: 'lazy' }),
           ]),
           el('figcaption', { className: 'mascot-info' }, [
             el('div', { className: 'mascot-title-row' }, [
@@ -853,7 +875,7 @@ function render() {
       ]),
     ]),
     el('section', { className: 'hero-stage' }, [el('div', { className: 'hero hero-main hero-panel' }, [
-      el('p', { className: 'eyebrow', textContent: '星海 · 导航手册' }),
+      el('p', { className: 'eyebrow', textContent: `星海观测帖 / ${visual.sceneTitle}` }),
       el('h1', {}, [
         el('span', { className: 'hero-title-accent', textContent: '发现属于你的' }),
         '星空',
@@ -869,47 +891,10 @@ function render() {
         shell.querySelector('.mascot-art').focus({ preventScroll: true });
       }, { className: 'recall', hidden: !state.mascotHidden }),
     ]), el('div', { className: 'hero-scenic-window' }, [
-      el('div', { className: 'scene-plaque' }, [
-        el('span', { textContent: '✦ 当前世界线 · ' + visual.sceneTitle }),
-      ]),
       mascotPanel(),
     ])]),
     el('div', { className: 'editorial-content' }, [
-        mascotGallery(),
-        el('section', { className: 'visual-gallery' }, [
-          el('div', { className: 'gallery-heading' }, [
-            el('h2', { className: 'section-title', textContent: '世界线 · CG 原画廊' }),
-          ]),
-          el('div', { className: 'gallery-grid' }, [...THEMES.map((theme) => {
-            const scene = THEME_VISUALS[theme.id];
-            const active = theme.id === state.theme;
-            return el('button', {
-              type: 'button', className: active ? 'gallery-card active' : 'gallery-card',
-              'aria-pressed': String(active), onClick: () => chooseTheme(theme.id),
-            }, [
-              picture(scene.bgWebp, scene.bgJpg, 1376, 768),
-              el('span', { className: 'gallery-caption' }, [
-                el('strong', { textContent: theme.name }),
-                el('small', { textContent: scene.sceneTitle }),
-                active ? el('span', { className: 'gallery-current', textContent: '当前世界线' }) : null,
-              ]),
-            ]);
-          }), ...CG_ARTWORKS.map((art, index) => el('button', {
-            type: 'button', className: 'gallery-card cg-gallery-card', 'aria-haspopup': 'dialog',
-            onClick: (event) => openCgLightbox(index, event.currentTarget),
-          }, [
-            picture(art.bgWebp, art.bgJpg, 1376, 768),
-            el('span', { className: 'gallery-caption' }, [
-              el('strong', { textContent: art.title }),
-              el('small', { textContent: art.tag }),
-            ]),
-          ]))]),
-        ]),
         el('section', {}, [el('h2', { textContent: '常用置顶' }), el('div', { className: 'grid' }, siteCards(state.sites.filter((site) => site.pinned)))]),
-        el('section', { id: 'ai-radar-section', className: 'ai-radar-section' }, [
-          picture(radarArt.bgWebp, radarArt.bgJpg, 1376, 768, '', { className: 'radar-backdrop', 'aria-hidden': 'true' }),
-          el('div', { id: 'ai-radar-body' }, aiRadarContent()),
-        ]),
         el('section', {}, [
           el('div', { className: 'section-head' }, [el('h2', { className: 'section-title', textContent: '探索网址库' }), el('span', { id: 'count' })]),
           chips(['全部', ...listCategories(state.sites)], category, (item) => {
@@ -921,9 +906,42 @@ function render() {
           }),
           el('div', { id: 'results', className: 'grid' }),
         ]),
+        el('section', { className: 'visual-gallery' }, [
+          el('div', { className: 'gallery-heading' }, [
+            el('h2', { className: 'section-title', textContent: '世界线 · CG 原画廊' }),
+            el('span', { textContent: '点击切换世界线背景或查看大图原作信息' }),
+          ]),
+          el('div', { className: 'gallery-grid' }, [...THEMES.map((theme) => {
+            const scene = THEME_VISUALS[theme.id];
+            const active = theme.id === state.theme;
+            return el('button', {
+              type: 'button', className: active ? 'gallery-card active' : 'gallery-card',
+              'aria-pressed': String(active), onClick: () => chooseTheme(theme.id),
+            }, [
+              picture(scene.bgWebp, scene.bgJpg, 1280, 720, '', {}, { loading: 'lazy' }),
+              el('span', { className: 'gallery-caption' }, [
+                el('strong', { textContent: active ? `${theme.name}（当前）` : theme.name }),
+                el('small', { textContent: scene.sceneTitle }),
+              ]),
+            ]);
+          }), ...CG_ARTWORKS.map((art, index) => el('button', {
+            type: 'button', className: 'gallery-card cg-gallery-card', 'aria-haspopup': 'dialog',
+            onClick: (event) => openCgLightbox(index, event.currentTarget),
+          }, [
+            picture(art.bgWebp, art.bgJpg, 1280, 720, '', {}, { loading: 'lazy' }),
+            el('span', { className: 'gallery-caption' }, [
+              el('strong', { textContent: art.title }),
+              el('small', { textContent: art.subtitle }),
+            ]),
+          ]))]),
+        ]),
+        el('section', { id: 'ai-radar-section', className: 'ai-radar-section' }, [
+          el('div', { id: 'ai-radar-body' }, aiRadarContent()),
+        ]),
+        mascotGallery(),
         el('footer', {}, [
           el('p', { textContent: '✦ 在热爱中，发现更多可能 · NavHub' }),
-          el('p', { className: 'pet-credit', textContent: 'CC BY-NC-SA 4.0 · 原作者 CrossPet / lokicorvus / ZipZipPipe / 上善无形 · 详见 NOTICE.md' }),
+          el('p', { className: 'pet-credit', textContent: '桌宠立绘 CC BY-NC-SA 4.0（CrossPet / lokicorvus / ZipZipPipe / 上善无形）· 官方游戏 CG 版权归各原作社团所有（详见 NOTICE.md）' }),
         ]),
     ]),
   );

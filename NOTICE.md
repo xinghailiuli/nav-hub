@@ -1,8 +1,8 @@
 # Notices and Third-Party Art Attribution
 
-NavHub (`极光导航`) includes code under the repository license and incorporates third-party desktop pet character artwork from **CrossPet** and **hagemi-pet-agy**:
+NavHub (`极光导航`) includes code under the repository license and incorporates third-party artwork under clearly separated terms:
 
-## CrossPet & Hagemi Desktop Pet Character Art (`public/art/pet-*.webp`, `public/art/pet-*.png`, and derived card scenes `cg-claude`, `cg-gemini`, `cg-kimi`, `cg-tongyi`, `cg-cloudflare`, `cg-notion`)
+## 1. CrossPet & Hagemi Desktop Pet Character Art (`public/art/pet-*.webp`, `public/art/pet-*.png`)
 
 - **License**: [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 - **Sources**:
@@ -19,3 +19,17 @@ NavHub (`极光导航`) includes code under the repository license and incorpora
   - **Grok**: Gothic devil queen design by Bilibili **ZipZipPipe**
   - **豆包 (Doubao)**: Plush-hoodie companion design by Bilibili **ZipZipPipe**
 - **Trademark Notice**: `Claude`, `GPT`, `ChatGPT`, `DeepSeek`, `Gemini`, `GLM`, `Qwen`, `Grok`, `Kimi`, and `豆包` are trademarks of their respective owners; these character illustrations are non-commercial community fan adaptations under **CC BY-NC-SA 4.0**.
+
+## 2. Official Visual Novel / Game Promotional CGs (`public/art/bg-*.webp/jpg`, `public/art/cg-*.webp/jpg`, `public/art/mascot-*.webp/jpg`)
+
+All background wallpapers, gallery CGs, and site cards use official promotional screenshots obtained from public Steam Store app pages (`store.steampowered.com`) solely for non-commercial navigation preview and visual novel appreciation. Full copyright belongs to each original creator and publisher:
+
+- **Yuzusoft / Yuzusoft SOUR** (`喫茶ステラと死神の蝶`, `PARQUET`, `Sabbat of the Witch 魔女的夜宴`)
+- **Key / VisualArts** (`Summer Pockets`, `Rewrite+`)
+- **Frontwing** (`GINKA`, published by Frontwing USA / Bushiroad)
+- **Frontwing × Makura (枕)** (`ATRI -My Dear Moments-`)
+- **Palette** (`9-nine-` Episodes 1–3)
+- **SMEE** (`Sugar * Style`, `Making*Lovers`)
+- **Laplacian** (`白日梦的构想图 / Cyanotype Daydream`)
+- **Novectacle** (`The House in Fata Morgana`)
+- **SEGA / Crypton Future Media** (`Hatsune Miku: Project DIVA MEGA39’s＋`)

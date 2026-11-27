@@ -3,29 +3,29 @@ export const THEME_VISUALS = {
     bgWebp: "./art/bg-starlight.webp",
     bgJpg: "./art/bg-starlight.jpg",
     defaultMascotId: "sena",
-    sceneTitle: "星穹幻夜 · 银河观测台",
-    tagline: "银发星穹姬观测 Tokyo 夜景与流星轨线",
+    sceneTitle: "《星光咖啡馆与死神之蝶》· Yuzusoft",
+    tagline: "星空苍穹与蓝蝶微光下的视觉小说索引站",
   },
   sakura: {
     bgWebp: "./art/bg-sakura.webp",
     bgJpg: "./art/bg-sakura.jpg",
     defaultMascotId: "sakura",
-    sceneTitle: "昼樱轻语 · 樱坂图书室",
-    tagline: "春日晴空下的神社樱道与学院长廊",
+    sceneTitle: "《Sugar * Style》· SMEE",
+    tagline: "春日樱林繁花与轻快学院日常",
   },
   akiba: {
     bgWebp: "./art/bg-akiba.webp",
     bgJpg: "./art/bg-akiba.jpg",
     defaultMascotId: "sena",
-    sceneTitle: "霓虹秋叶原 · 中央通夜航",
-    tagline: "雨夜阳台上的电音霓虹与掌机微光",
+    sceneTitle: "《PARQUET》· Yuzusoft SOUR",
+    tagline: "夜间电车微光与都市霓虹夜航坐标",
   },
   miku: {
     bgWebp: "./art/bg-miku.webp",
     bgJpg: "./art/bg-miku.jpg",
     defaultMascotId: "sakura",
-    sceneTitle: "苍穹音律 · 电子歌姬回廊",
-    tagline: "苍青全息舞台与悬浮音频光带",
+    sceneTitle: "《初音未来 Project DIVA MEGA39’s＋》· SEGA",
+    tagline: "苍青全息舞台聚光灯与音律共振现场",
   },
 };
 
@@ -219,34 +219,34 @@ const siteArtworkPool = Object.values(SITE_ARTWORKS);
 // Relative luminance sampled from the original CGs for the daylight reading scrim.
 export const CG_ARTWORKS = [
   {
-    id: "cg-galgame", title: "放学后的约定", subtitle: "夕光落进视觉小说的下一幕", tag: "Galgame CG",
+    id: "cg-galgame", title: "夏海与入道云的彼岸", subtitle: "《GINKA》· Frontwing", tag: "Frontwing",
     bgWebp: "./art/cg-galgame.webp", bgJpg: "./art/cg-galgame.jpg", categoryHint: "Galgame 档案",
     luminance: 0.3845,
   },
   {
-    ...artworkPaths("cg-ymgal"), title: "月幕未合", subtitle: "把未读完的故事留给下一轮月光", tag: "月下书页",
+    ...artworkPaths("cg-ymgal"), title: "鸟白岛的夏夜", subtitle: "《Summer Pockets》· Key", tag: "Key 社原画",
   },
   {
-    ...artworkPaths("cg-bangumi"), title: "放映前一刻", subtitle: "灯光渐暗，等候下一帧相遇", tag: "番组手账",
+    ...artworkPaths("cg-bangumi"), title: "沉没都市的海底微光", subtitle: "《ATRI -My Dear Moments-》· Frontwing × 枕", tag: "科幻抒情",
   },
   {
-    ...artworkPaths("cg-bili"), title: "同看一片星光", subtitle: "弹幕掠过屏幕，照亮此刻的共鸣", tag: "浮光弹幕",
+    ...artworkPaths("cg-bili"), title: "晴空砖道与初夏微风", subtitle: "《PARQUET》· Yuzusoft SOUR", tag: "柚子社清流",
   },
   {
-    id: "cg-pixiv", title: "流光画室", subtitle: "沿着色彩寻找下一笔灵感", tag: "二次元插画",
+    id: "cg-pixiv", title: "暮色长街构想图", subtitle: "《白日梦的构想图》· Laplacian", tag: "油画光影风",
     bgWebp: "./art/cg-pixiv.webp", bgJpg: "./art/cg-pixiv.jpg", categoryHint: "二次元插画与社区",
     luminance: 0.2755,
   },
   {
-    ...artworkPaths("cg-moegirl"), title: "词条里的小宇宙", subtitle: "沿着页边的注脚，拾起散落的故事", tag: "萌系图鉴",
+    ...artworkPaths("cg-moegirl"), title: "花房晨光与日常", subtitle: "《PARQUET》· Yuzusoft SOUR", tag: "花店物语",
   },
   {
-    id: "cg-nightcafe", title: "深夜咖啡馆", subtitle: "留一盏灯给夜归的旅人", tag: "夜间场景",
+    id: "cg-nightcafe", title: "午后喫茶店甜点", subtitle: "《星光咖啡馆与死神之蝶》· Yuzusoft", tag: "喫茶日常",
     bgWebp: "./art/cg-nightcafe.webp", bgJpg: "./art/cg-nightcafe.jpg", categoryHint: "动漫追番",
     luminance: 0.1304,
   },
   {
-    id: "cg-radar", title: "星海观测桥", subtitle: "追踪实时模型与远方的信号", tag: "雷达场景",
+    id: "cg-radar", title: "都市夜航观测点", subtitle: "《PARQUET》· Yuzusoft SOUR", tag: "都市夜景",
     bgWebp: "./art/cg-radar.webp", bgJpg: "./art/cg-radar.jpg", categoryHint: "AI 大模型入口",
     luminance: 0.0815,
   },
