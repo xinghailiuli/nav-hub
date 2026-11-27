@@ -16,6 +16,7 @@ import {
   loadState,
   normalizeUrl,
   resolveThemeId,
+  resolveSiteEmblem,
   sanitizeVisualPreferences,
   sanitizeCustomWallpaperInput,
   sanitizeImportedSites,
@@ -582,4 +583,17 @@ test("all eight engines encode Chinese, whitespace and reserved URL characters",
   for (const [id, url] of Object.entries(expected)) assert.equal(buildSearchUrl(id, " 星 &#? "), url);
   assert.equal(buildSearchUrl("unknown", "星 &#?"), expected.bing);
   assert.equal(buildSearchUrl("pixiv", "  "), null);
+});
+
+test("site emblem resolution matches hostname dynamically for edited, custom, and unsafe URLs", () => {
+  assert.deepEqual(resolveSiteEmblem({ id: "site-chatgpt", url: "https://example.org/", category: "AI 大模型入口" }),
+    { type: "icon", petId: null, icon: "ai" });
+  assert.deepEqual(resolveSiteEmblem({ id: "custom-gpt", url: "https://chatgpt.com/c/1", category: "自定义" }),
+    { type: "pet", petId: "gpt", icon: "ai" });
+  assert.deepEqual(resolveSiteEmblem({ id: "custom-ds", url: "https://chat.deepseek.com/", category: "AI" }),
+    { type: "pet", petId: "deepseek", icon: "ai" });
+  assert.deepEqual(resolveSiteEmblem({ id: "custom-gh", url: "https://gist.github.com/u", category: "全部" }),
+    { type: "icon", petId: null, icon: "code" });
+  assert.deepEqual(resolveSiteEmblem({ id: "bad", url: "javascript:alert(1)", category: "Galgame 档案" }),
+    { type: "icon", petId: null, icon: "galgame" });
 });

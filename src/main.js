@@ -2,7 +2,8 @@ import { DEFAULT_SEARCH_ENGINES } from './data/defaultSites.js';
 import {
   THEMES, loadState, saveState, createDefaultState, addSite, updateSite,
   deleteSite, togglePin, listCategories, filterSites, buildSearchUrl,
-  exportStateJson, importStateJson, isSafeHttpUrl, sanitizeCustomWallpaperInput, extractDomainLabel,
+  exportStateJson, importStateJson, isSafeHttpUrl, sanitizeCustomWallpaperInput,
+  extractDomainLabel, resolveSiteEmblem,
 } from './store.js';
 import { loadAiRadarCache, fetchLiveAiRadar, formatContextWindow } from './aiRadar.js';
 import snapshot from './data/aiModelsSnapshot.json';
@@ -192,15 +193,6 @@ function apply() {
   document.querySelector('meta[name="color-scheme"]').content = theme.colorScheme;
   document.querySelector('#meta-theme-color').content = theme.themeColor;
 }
-const SITE_PET_MATCH = {
-  'site-deepseek': 'deepseek',
-  'site-chatgpt': 'gpt',
-  'site-claude': 'claude',
-  'site-gemini': 'gemini',
-  'site-kimi': 'kimi',
-  'site-tongyi': 'qwen',
-};
-
 const EMBLEM_PATHS = {
   galgame: 'M4 5.5A2.5 2.5 0 0 1 6.5 3H19v16.5H6.5A2.5 2.5 0 0 0 4 22V5.5Zm2.5 11.5H17M8 7.5h6',
   anime: 'M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11Zm6 2.7 5.2 2.8-5.2 2.8V9.2Z',
@@ -211,18 +203,6 @@ const EMBLEM_PATHS = {
   docs: 'M7 3h7l4 4v13a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V4.5A1.5 1.5 0 0 1 7.5 3Zm3 7h5m-5 4h5m-5 4h3',
   ai: 'M12 3 14.3 9.2 20.5 11.5 14.3 13.8 12 20l-2.3-6.2L3.5 11.5l6.2-2.3Z',
 };
-
-function emblemKey(site) {
-  if (site.id === 'site-github') return 'code';
-  if (site.id === 'site-cloudflare' || site.id === 'site-edgeone') return 'cloud';
-  if (site.id === 'site-deepl') return 'translate';
-  if (site.id === 'site-notion' || site.id === 'site-txdocs') return 'docs';
-  if (site.category === 'Galgame 档案') return 'galgame';
-  if (site.category === '动漫追番') return 'anime';
-  if (site.category === '二次元插画与社区') return 'art';
-  if (site.category === 'AI 大模型入口') return 'ai';
-  return 'docs';
-}
 
 function emblemIcon(kind) {
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -243,16 +223,21 @@ function emblemIcon(kind) {
 }
 
 function siteEmblem(site, size = 44) {
-  const petId = SITE_PET_MATCH[site.id];
-  const pet = petId ? CROSSPET_ROSTER[petId] : null;
+  const resolved = resolveSiteEmblem(site);
+  const pet = resolved.type === 'pet' ? CROSSPET_ROSTER[resolved.petId] : null;
   if (pet) {
     return el('div', { className: 'card-emblem is-pet-emblem', 'aria-hidden': 'true' }, [
       petThumbnail(pet, size),
     ]);
   }
   return el('div', { className: 'card-emblem', 'aria-hidden': 'true' }, [
-    emblemIcon(emblemKey(site)),
+    emblemIcon(resolved.icon),
   ]);
+}
+
+function focusByDataSiteId(selector, siteId) {
+  const target = [...shell.querySelectorAll(selector)].find((node) => node.dataset.siteId === siteId);
+  target?.focus({ preventScroll: true });
 }
 
 function pinnedTile(site) {
@@ -276,8 +261,17 @@ function pinnedTile(site) {
       el('h3', { className: 'card-title' }, [titleNode]),
       el('small', { textContent: host || site.category }),
     ]),
-    button('★', () => { state = saveState(togglePin(state, site.id)); render(); }, {
+    button('★', () => {
+      const pinnedIds = state.sites.filter((item) => item.pinned).map((item) => item.id);
+      const pos = pinnedIds.indexOf(site.id);
+      const nextPinId = pinnedIds[pos + 1] ?? pinnedIds[pos - 1] ?? null;
+      state = saveState(togglePin(state, site.id));
+      render();
+      if (nextPinId) focusByDataSiteId('.pinned-unpin', nextPinId);
+      else focusByDataSiteId('#results .fav-btn', site.id);
+    }, {
       className: 'fav-btn pinned-unpin',
+      'data-site-id': site.id,
       'aria-pressed': 'true',
       'aria-label': `置顶 ${site.name}`,
       title: '取消置顶',
@@ -315,8 +309,13 @@ function card(site) {
     el('footer', { className: 'card-foot' }, [
       el('div', { className: 'tags' }, (site.tags || []).slice(0, 2).map((tag) => el('span', { className: 'tag-pill', textContent: tag }))),
       el('div', { className: 'actions' }, [
-        button(site.pinned ? '★' : '☆', () => { state = saveState(togglePin(state, site.id)); render(); }, {
+        button(site.pinned ? '★' : '☆', () => {
+          state = saveState(togglePin(state, site.id));
+          render();
+          focusByDataSiteId('#results .fav-btn', site.id);
+        }, {
           className: 'fav-btn',
+          'data-site-id': site.id,
           'aria-pressed': String(Boolean(site.pinned)),
           'aria-label': `置顶 ${site.name}`,
           title: site.pinned ? '取消置顶' : '置顶',
@@ -899,7 +898,7 @@ function render() {
   const activeId = active?.id;
   const selection = activeId === 'global-search-input'
     ? [active.selectionStart, active.selectionEnd, active.selectionDirection] : null;
-  const themeFocus = active?.closest('.theme-group, .gallery-grid');
+  const themeFocus = active?.closest('.theme-group, .gallery-themes, .gallery-grid');
   apply();
   syncBackdrop();
   const visual = THEME_VISUALS[state.theme];

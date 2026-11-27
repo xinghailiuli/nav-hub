@@ -78,6 +78,42 @@ export function extractDomainLabel(rawUrl) {
   }
 }
 
+const HOST_PET_RULES = [
+  [/^(?:chat\.)?deepseek\.com$/i, "deepseek"],
+  [/^(?:chatgpt\.com|(?:chat\.)?openai\.com)$/i, "gpt"],
+  [/^(?:claude\.ai|(?:console\.)?anthropic\.com)$/i, "claude"],
+  [/^(?:gemini\.google\.com|aistudio\.google\.com)$/i, "gemini"],
+  [/^(?:kimi\.moonshot\.cn|kimi\.ai|moonshot\.cn)$/i, "kimi"],
+  [/^(?:tongyi\.aliyun\.com|qianwen\.aliyun\.com)$/i, "qwen"],
+];
+
+const HOST_EMBLEM_RULES = [
+  [/(?:^|\.)github\.com$/i, "code"],
+  [/(?:^|\.)cloudflare\.com$|^cloud\.tencent\.com$/i, "cloud"],
+  [/(?:^|\.)deepl\.com$/i, "translate"],
+  [/(?:^|\.)notion\.so$|^docs\.qq\.com$/i, "docs"],
+  [/(?:^|\.)pixiv\.net$|(?:^|\.)canva\.(?:com|cn)$/i, "art"],
+  [/(?:^|\.)vndb\.org$|(?:^|\.)ymgal\.games$|(?:^|\.)2dfan\.org$|store\.steampowered\.com$/i, "galgame"],
+  [/(?:^|\.)bgm\.tv$|(?:^|\.)bilibili\.com$|gamer\.com\.tw$|(?:^|\.)myanimelist\.net$|(?:^|\.)anilist\.co$/i, "anime"],
+];
+
+export function resolveSiteEmblem(site) {
+  const host = extractDomainLabel(site?.url || "");
+  for (const [pattern, petId] of HOST_PET_RULES) {
+    if (pattern.test(host)) return { type: "pet", petId, icon: "ai" };
+  }
+  for (const [pattern, icon] of HOST_EMBLEM_RULES) {
+    if (pattern.test(host)) return { type: "icon", petId: null, icon };
+  }
+  const cat = site?.category || "";
+  const icon = cat === "Galgame 档案" ? "galgame"
+    : cat === "动漫追番" ? "anime"
+    : cat === "二次元插画与社区" ? "art"
+    : cat === "AI 大模型入口" ? "ai"
+    : "docs";
+  return { type: "icon", petId: null, icon };
+}
+
 export function pickAccent(name = "") {
   let hash = 0;
   for (let i = 0; i < name.length; i += 1) {

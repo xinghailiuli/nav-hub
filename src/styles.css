@@ -839,7 +839,8 @@ footer { padding: 24px 0 8px; color: var(--ink-2); font: 13px/1.5 var(--font-dis
 :is(.site-card, .radar-card) .actions :is(button, a):hover { background: var(--chip); color: var(--accent); }
 .site-card .fav-btn[aria-pressed="true"] { color: var(--accent); }
 @container (max-width: 245px) {
-  .card-top { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .card-top { flex-direction: column; align-items: stretch; gap: 6px; }
+  .card-head-text { width: 100%; flex: none; }
 }
 
 .editorial-content > .ai-radar-section {
